@@ -29,7 +29,7 @@ class Env(RemoteCommand):
                 key, val = x.split('=', 1)
                 env[key] = val
             else:
-                env[x + '='] = ''
+                env[f'{x}='] = ''
         return {'env': env}
 
     def response_from_kitty(self, boss: Boss, window: Optional[Window], payload_get: PayloadGetType) -> ResponseType:

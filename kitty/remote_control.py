@@ -191,7 +191,8 @@ def handle_cmd(
     if tuple(v)[:2] > version[:2]:
         if no_response:
             return None
-        return {'ok': False, 'error': 'The kitty client you are using to send remote commands is newer than this kitty instance. This is not supported.'}
+        else:
+            return {'ok': False, 'error': 'The kitty client you are using to send remote commands is newer than this kitty instance. This is not supported.'}
     c = command_for_name(cmd['cmd'])
     payload = cmd.get('payload') or {}
     payload['peer_id'] = peer_id
@@ -225,15 +226,11 @@ def handle_cmd(
     if isinstance(ans, NoResponse):
         return None
     if isinstance(ans, AsyncResponse):
-        if stream:
-            return {'ok': True, 'stream': True}
-        return ans
+        return {'ok': True, 'stream': True} if stream else ans
     response: Dict[str, Any] = {'ok': True}
     if ans is not None:
         response['data'] = ans
-    if not no_response:
-        return response
-    return None
+    return None if no_response else response
 
 
 global_options_spec = partial('''\
@@ -278,7 +275,7 @@ the supplied password.
 
 
 def encode_send(send: Any) -> bytes:
-    es = ('@kitty-cmd' + json.dumps(send)).encode('ascii')
+    es = f'@kitty-cmd{json.dumps(send)}'.encode('ascii')
     return b'\x1bP' + es + b'\x1b\\'
 
 
@@ -327,7 +324,7 @@ class SocketIO:
             if monotonic() - st > timeout:
                 raise TimeoutError('Timed out while waiting to read cmd response')
             raise SocketClosed('Remote control connection was closed by kitty without any response being received')
-        return bytes(m.group(1))
+        return bytes(m[1])
 
 
 class RCIO(TTYIO):
@@ -453,9 +450,7 @@ def send_response_to_client(data: Any = None, error: str = '', peer_id: int = 0,
 def get_password(opts: RCOptions) -> str:
     if opts.use_password == 'never':
         return ''
-    ans = ''
-    if opts.password:
-        ans = opts.password
+    ans = opts.password if opts.password else ''
     if not ans and opts.password_file:
         if opts.password_file == '-':
             if sys.stdin.isatty():
@@ -471,11 +466,9 @@ def get_password(opts: RCOptions) -> str:
                     with open(tty_fd, closefd=True):
                         os.dup2(tty_fd, sys.stdin.fileno())
         else:
-            try:
+            with suppress(OSError):
                 with open(resolve_custom_file(opts.password_file)) as f:
                     ans = f.read().rstrip()
-            except OSError:
-                pass
     if not ans and opts.password_env:
         ans = os.environ.get(opts.password_env, '')
     if not ans and opts.use_password == 'always':

@@ -113,7 +113,7 @@ failed, the command will exit with a success code.
             if isinstance(q, AsyncResponse):
                 return q
             import hashlib
-            path = '/from/remote/control/' + hashlib.sha1(q.getvalue()).hexdigest()
+            path = f'/from/remote/control/{hashlib.sha1(q.getvalue()).hexdigest()}'
             tfile = q
 
         for window in self.windows_for_match_payload(boss, window, payload_get):

@@ -120,8 +120,10 @@ iso_level3_shift            ISO_Level3_Shift            -      -
 iso_level5_shift            ISO_Level5_Shift            -      -
 '''  # }}}
 
-shift_map = {x[0]: x[1] for x in '`~ 1! 2@ 3# 4$ 5% 6^ 7& 8* 9( 0) -_ =+ [{ ]} \\| ;: \'" ,< .> /?'.split()}
-shift_map.update({x: x.upper() for x in string.ascii_lowercase})
+shift_map = {
+    x[0]: x[1]
+    for x in '`~ 1! 2@ 3# 4$ 5% 6^ 7& 8* 9( 0) -_ =+ [{ ]} \\| ;: \'" ,< .> /?'.split()
+} | {x: x.upper() for x in string.ascii_lowercase}
 functional_encoding_overrides = {
     'insert': 2, 'delete': 3, 'page_up': 5, 'page_down': 6,
     'home': 7, 'end': 8, 'tab': 9, 'f1': 11, 'f2': 12, 'f3': 13, 'enter': 13, 'f4': 14,
@@ -252,9 +254,7 @@ def serialize_go_dict(x: Union[Dict[str, int], Dict[int, str], Dict[int, int]]) 
     ans = []
 
     def s(x: Union[int, str]) -> str:
-        if isinstance(x, int):
-            return str(x)
-        return f'"{x}"'
+        return str(x) if isinstance(x, int) else f'"{x}"'
 
     for k, v in x.items():
         ans.append(f'{s(k)}: {s(v)}')
@@ -273,8 +273,7 @@ def generate_glfw_header() -> None:
         pyi.append(f'GLFW_FKEY_{name.upper()}: int')
         names.append(f'    case GLFW_FKEY_{name.upper()}: return "{name.upper()}";')
         knames.append(f'            case GLFW_FKEY_{name.upper()}: return PyUnicode_FromString("{name}");')
-    lines.append(f'  GLFW_FKEY_LAST = 0x{last_code:x}u')
-    lines.append('} GLFWFunctionKey;')
+    lines.extend((f'  GLFW_FKEY_LAST = 0x{last_code:x}u', '} GLFWFunctionKey;'))
     patch_file('glfw/glfw3.h', 'functional key names', '\n'.join(lines))
     patch_file('kitty/glfw.c', 'glfw functional keys', '\n'.join(klines))
     patch_file('kitty/fast_data_types.pyi', 'glfw functional keys', '\n'.join(pyi), start_marker='# ', end_marker='')
@@ -313,10 +312,10 @@ def generate_functional_table() -> None:
                 trailer += f' or {oc} ~'
         else:
             trailer = 'u'
-        line_items.append(name.upper())
-        line_items.append(f'``{code}\xa0{trailer}``')
-    for li in chunks(line_items, 4):
-        lines.append('   ' + ', '.join(f'"{x}"' for x in li))
+        line_items.extend((name.upper(), f'``{code}\xa0{trailer}``'))
+    lines.extend(
+        '   ' + ', '.join(f'"{x}"' for x in li) for li in chunks(line_items, 4)
+    )
     lines.append('')
     patch_file('docs/keyboard-protocol.rst', 'functional key table', '\n'.join(lines), start_marker='.. ', end_marker='')
     patch_file('kitty/key_encoding.c', 'special numbers', '\n'.join(enc_lines))
@@ -390,8 +389,10 @@ def generate_ctrl_mapping() -> None:
             k = f'\\{k}'
         mi.append(f"        case '{k}': return {val};")
 
-    for line_items in chunks(items, 6):
-        lines.append('   ' + ', '.join(f'"{x}"' for x in line_items))
+    lines.extend(
+        '   ' + ', '.join(f'"{x}"' for x in line_items)
+        for line_items in chunks(items, 6)
+    )
     lines.append('')
     patch_file('docs/keyboard-protocol.rst', 'ctrl mapping', '\n'.join(lines), start_marker='.. ', end_marker='')
     patch_file('kitty/key_encoding.c', 'ctrl mapping', '\n'.join(mi))
@@ -403,17 +404,20 @@ def generate_macos_mapping() -> None:
         v = macos_ansi_key_codes[k]
         lines.append(f'        case 0x{k:x}: return 0x{v:x};')
     patch_file('glfw/cocoa_window.m', 'vk to unicode', '\n'.join(lines))
-    lines = []
-    for name, vk in name_to_vk.items():
-        lines.append(f'        case 0x{vk:x}: return GLFW_FKEY_{name.upper()};')
+    lines = [
+        f'        case 0x{vk:x}: return GLFW_FKEY_{name.upper()};'
+        for name, vk in name_to_vk.items()
+    ]
     patch_file('glfw/cocoa_window.m', 'vk to functional', '\n'.join(lines))
-    lines = []
-    for name, mac in name_to_macu.items():
-        lines.append(f'        case {mac}: return GLFW_FKEY_{name.upper()};')
+    lines = [
+        f'        case {mac}: return GLFW_FKEY_{name.upper()};'
+        for name, mac in name_to_macu.items()
+    ]
     patch_file('glfw/cocoa_window.m', 'macu to functional', '\n'.join(lines))
-    lines = []
-    for name, mac in name_to_macu.items():
-        lines.append(f'        case GLFW_FKEY_{name.upper()}: return {mac};')
+    lines = [
+        f'        case GLFW_FKEY_{name.upper()}: return {mac};'
+        for name, mac in name_to_macu.items()
+    ]
     patch_file('glfw/cocoa_window.m', 'functional to macu', '\n'.join(lines))
 
 

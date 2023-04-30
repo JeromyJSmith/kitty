@@ -78,7 +78,7 @@ def send_text_parse(func: str, rest: str) -> FuncArgsType:
         try:
             data = parse_send_text_bytes(args[1])
         except Exception:
-            log_error('Ignoring invalid send_text string: ' + args[1])
+            log_error(f'Ignoring invalid send_text string: {args[1]}')
     return func, [mode, data]
 
 
@@ -102,7 +102,7 @@ def open_url_parse(func: str, rest: str) -> FuncArgsType:
         if not all((tokens.scheme, tokens.netloc,)):
             raise ValueError('Invalid URL')
     except Exception:
-        log_error('Ignoring invalid URL string: ' + rest)
+        log_error(f'Ignoring invalid URL string: {rest}')
     return func, (url,)
 
 
@@ -204,7 +204,7 @@ def paste_parse(func: str, rest: str) -> FuncArgsType:
     try:
         text = defines.expand_ansi_c_escapes(rest)
     except Exception:
-        log_error('Ignoring invalid paste string: ' + rest)
+        log_error(f'Ignoring invalid paste string: {rest}')
     return func, [text]
 
 
@@ -304,10 +304,7 @@ def sleep(func: str, sleep_time: str) -> FuncArgsType:
 @func_with_args('disable_ligatures_in')
 def disable_ligatures_in(func: str, rest: str) -> FuncArgsType:
     parts = rest.split(maxsplit=1)
-    if len(parts) == 1:
-        where, strategy = 'active', parts[0]
-    else:
-        where, strategy = parts
+    where, strategy = ('active', parts[0]) if len(parts) == 1 else parts
     if where not in ('active', 'all', 'tab'):
         raise ValueError(f'{where} is not a valid set of windows to disable ligatures in')
     if strategy not in ('never', 'always', 'cursor'):
@@ -317,19 +314,21 @@ def disable_ligatures_in(func: str, rest: str) -> FuncArgsType:
 
 @func_with_args('layout_action')
 def layout_action(func: str, rest: str) -> FuncArgsType:
-    parts = rest.split(maxsplit=1)
-    if not parts:
+    if parts := rest.split(maxsplit=1):
+        return func, [parts[0], tuple(parts[1:])]
+    else:
         raise ValueError('layout_action must have at least one argument')
-    return func, [parts[0], tuple(parts[1:])]
 
 
 def parse_marker_spec(ftype: str, parts: Sequence[str]) -> Tuple[str, Union[str, Tuple[Tuple[int, str], ...]], int]:
     flags = re.UNICODE
-    if ftype in ('text', 'itext', 'regex', 'iregex'):
+    if ftype in {'text', 'itext', 'regex', 'iregex'}:
         if ftype.startswith('i'):
             flags |= re.IGNORECASE
         if not parts or len(parts) % 2 != 0:
-            raise ValueError('Mark group number and text/regex are not specified in pairs: {}'.format(' '.join(parts)))
+            raise ValueError(
+                f"Mark group number and text/regex are not specified in pairs: {' '.join(parts)}"
+            )
         ans = []
         for i in range(0, len(parts), 2):
             try:
@@ -474,9 +473,7 @@ def box_drawing_scale(x: str) -> Tuple[float, float, float, float]:
 
 
 def cursor_text_color(x: str) -> Optional[Color]:
-    if x.lower() == 'background':
-        return None
-    return to_color(x)
+    return None if x.lower() == 'background' else to_color(x)
 
 
 cshapes = {
@@ -491,9 +488,7 @@ def to_cursor_shape(x: str) -> int:
         return cshapes[x.lower()]
     except KeyError:
         raise ValueError(
-            'Invalid cursor shape: {} allowed values are {}'.format(
-                x, ', '.join(cshapes)
-            )
+            f"Invalid cursor shape: {x} allowed values are {', '.join(cshapes)}"
         )
 
 
@@ -524,11 +519,9 @@ def url_prefixes(x: str) -> Tuple[str, ...]:
 def copy_on_select(raw: str) -> str:
     q = raw.lower()
     # boolean values special cased for backwards compat
-    if q in ('y', 'yes', 'true', 'clipboard'):
+    if q in {'y', 'yes', 'true', 'clipboard'}:
         return 'clipboard'
-    if q in ('n', 'no', 'false', ''):
-        return ''
-    return raw
+    return '' if q in {'n', 'no', 'false', ''} else raw
 
 
 def window_size(val: str) -> Tuple[int, str]:
@@ -571,7 +564,7 @@ def window_border_width(x: Union[str, int, float]) -> Tuple[float, str]:
 
 
 def edge_width(x: str, converter: Callable[[str], float] = positive_float) -> FloatEdges:
-    parts = str(x).split()
+    parts = x.split()
     num = len(parts)
     if num == 1:
         val = converter(parts[0])
@@ -594,9 +587,7 @@ def optional_edge_width(x: str) -> FloatEdges:
 def hide_window_decorations(x: str) -> int:
     if x == 'titlebar-only':
         return 0b10
-    if to_bool(x):
-        return 0b01
-    return 0b00
+    return 0b01 if to_bool(x) else 0b00
 
 
 def resize_draw_strategy(x: str) -> int:
@@ -649,18 +640,14 @@ def tab_fade(x: str) -> Tuple[float, ...]:
 
 
 def tab_activity_symbol(x: str) -> str:
-    if x == 'none':
-        return ''
-    return tab_title_template(x)
+    return '' if x == 'none' else tab_title_template(x)
 
 
 def bell_on_tab(x: str) -> str:
     xl = x.lower()
-    if xl in ('yes', 'y', 'true'):
+    if xl in {'yes', 'y', 'true'}:
         return '🔔 '
-    if xl in ('no', 'n', 'false', 'none'):
-        return ''
-    return tab_title_template(x)
+    return '' if xl in {'no', 'n', 'false', 'none'} else tab_title_template(x)
 
 
 def tab_title_template(x: str) -> str:
@@ -684,8 +671,7 @@ def config_or_absolute_path(x: str, env: Optional[Dict[str, str]] = None) -> Opt
 
 
 def remote_control_password(val: str, current_val: Dict[str, str]) -> Iterable[Tuple[str, Sequence[str]]]:
-    val = val.strip()
-    if val:
+    if val := val.strip():
         parts = to_cmdline(val, expand=False)
         if parts[0].startswith('-'):
             # this is done so in the future we can add --options to the cmd
@@ -724,9 +710,7 @@ def macos_titlebar_color(x: str) -> int:
     x = x.strip('"')
     if x == 'light':
         return -1
-    if x == 'dark':
-        return -2
-    return titlebar_color(x)
+    return -2 if x == 'dark' else titlebar_color(x)
 
 
 def macos_option_as_alt(x: str) -> int:
@@ -737,9 +721,7 @@ def macos_option_as_alt(x: str) -> int:
         return 0b10
     if x == 'right':
         return 0b01
-    if to_bool(x):
-        return 0b11
-    return 0
+    return 0b11 if to_bool(x) else 0
 
 
 class TabBarMarginHeight(NamedTuple):
@@ -835,8 +817,7 @@ def modify_font(val: str) -> Iterable[Tuple[str, FontModification]]:
 
 
 def env(val: str, current_val: Dict[str, str]) -> Iterable[Tuple[str, str]]:
-    val = val.strip()
-    if val:
+    if val := val.strip():
         if '=' in val:
             key, v = val.split('=', 1)
             key, v = key.strip(), v.strip()
@@ -957,11 +938,10 @@ class AliasMap:
 
 def build_action_aliases(raw: Dict[str, str], first_arg_replacement: str = '') -> AliasMap:
     ans = AliasMap()
-    if first_arg_replacement:
-        for alias_name, rest in raw.items():
+    for alias_name, rest in raw.items():
+        if first_arg_replacement:
             ans.append(first_arg_replacement, ActionAlias(alias_name, rest, True))
-    else:
-        for alias_name, rest in raw.items():
+        else:
             ans.append(alias_name, ActionAlias(alias_name, rest))
     return ans
 
@@ -986,15 +966,12 @@ def resolve_aliases_and_parse_actions(
             new_defn = f'{possible_alias} {alias.value}{f" {parts[1]}" if len(parts) > 1 else ""}'
             new_aliases = aliases.copy()
             new_aliases[possible_alias] = [a for a in aliases[possible_alias] if a is not alias]
-            yield from resolve_aliases_and_parse_actions(new_defn, new_aliases, map_type)
-            return
         else:  # action_alias
             new_defn = f'{alias.value} {rest}' if rest else alias.value
             new_aliases = aliases.copy()
             new_aliases.pop(possible_alias)
-            yield from resolve_aliases_and_parse_actions(new_defn, new_aliases, map_type)
-            return
-
+        yield from resolve_aliases_and_parse_actions(new_defn, new_aliases, map_type)
+        return
     if possible_alias == 'combine':
         sep, rest = rest.split(maxsplit=1)
         parts = re.split(fr'\s*{re.escape(sep)}\s*', rest)
@@ -1168,9 +1145,12 @@ def deprecated_hide_window_decorations_aliases(key: str, val: str, ans: Dict[str
     if not hasattr(deprecated_hide_window_decorations_aliases, key):
         setattr(deprecated_hide_window_decorations_aliases, key, True)
         log_error(f'The option {key} is deprecated. Use hide_window_decorations instead.')
-    if to_bool(val):
-        if is_macos and key == 'macos_hide_titlebar' or (not is_macos and key == 'x11_hide_window_decorations'):
-            ans['hide_window_decorations'] = True
+    if to_bool(val) and (
+        is_macos
+        and key == 'macos_hide_titlebar'
+        or (not is_macos and key == 'x11_hide_window_decorations')
+    ):
+        ans['hide_window_decorations'] = True
 
 
 def deprecated_macos_show_window_title_in_menubar_alias(key: str, val: str, ans: Dict[str, Any]) -> None:
@@ -1183,11 +1163,10 @@ def deprecated_macos_show_window_title_in_menubar_alias(key: str, val: str, ans:
             macos_show_window_title_in = 'menubar'
         elif macos_show_window_title_in == 'window':
             macos_show_window_title_in = 'all'
-    else:
-        if macos_show_window_title_in == 'all':
-            macos_show_window_title_in = 'window'
-        elif macos_show_window_title_in == 'menubar':
-            macos_show_window_title_in = 'none'
+    elif macos_show_window_title_in == 'all':
+        macos_show_window_title_in = 'window'
+    elif macos_show_window_title_in == 'menubar':
+        macos_show_window_title_in = 'none'
     ans['macos_show_window_title_in'] = macos_show_window_title_in
 
 

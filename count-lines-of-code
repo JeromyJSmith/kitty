@@ -2,10 +2,15 @@
 
 import subprocess
 
-ignored = []
-for line in subprocess.check_output(['git', 'status', '--ignored', '--porcelain']).decode().splitlines():
-    if line.startswith('!! '):
-        ignored.append(line[3:])
+ignored = [
+    line[3:]
+    for line in subprocess.check_output(
+        ['git', 'status', '--ignored', '--porcelain']
+    )
+    .decode()
+    .splitlines()
+    if line.startswith('!! ')
+]
 files_to_exclude = '\n'.join(ignored)
 
 cp = subprocess.run(['git', 'check-attr', 'linguist-generated', '--stdin'],

@@ -20,10 +20,7 @@ mod_names = {
 def format_mods(mods: int) -> str:
     if not mods:
         return ''
-    lmods = []
-    for m, name in mod_names.items():
-        if mods & m:
-            lmods.append(name)
+    lmods = [name for m, name in mod_names.items() if mods & m]
     return '+'.join(lmods)
 
 
@@ -48,7 +45,7 @@ class KeysHandler(Handler):
             kk = 'SPACE'
         key = f'{mods}{kk} '
         self.cmd.colored(key, 'green')
-        self.cmd.colored(etype + ' ', 'yellow')
+        self.cmd.colored(f'{etype} ', 'yellow')
         self.cmd.styled(key_event.text, italic=True)
         self.print()
         rep = f'CSI {encode_key_event(key_event)[2:]}'
@@ -56,12 +53,12 @@ class KeysHandler(Handler):
         self.cmd.styled(rep, fg='magenta')
         if (key_event.shifted_key or key_event.alternate_key):
             self.print()
-            if key_event.shifted_key:
-                self.cmd.colored('Shifted key: ', 'gray')
-                self.print(key_event.shifted_key + ' ', end='')
-            if key_event.alternate_key:
-                self.cmd.colored('Alternate key: ', 'gray')
-                self.print(key_event.alternate_key + ' ', end='')
+        if key_event.shifted_key:
+            self.cmd.colored('Shifted key: ', 'gray')
+            self.print(f'{key_event.shifted_key} ', end='')
+        if key_event.alternate_key:
+            self.cmd.colored('Alternate key: ', 'gray')
+            self.print(f'{key_event.alternate_key} ', end='')
         self.print()
         self.print()
 

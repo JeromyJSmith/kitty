@@ -13,10 +13,7 @@ import kitty.conf.utils as generic_parsers
 from kitty.constants import website_url
 from kitty.types import run_once
 
-if typing.TYPE_CHECKING:
-    Only = typing.Literal['macos', 'linux', '']
-else:
-    Only = str
+Only = typing.Literal['macos', 'linux', ''] if typing.TYPE_CHECKING else str
 
 
 class Unset:
@@ -60,7 +57,7 @@ def resolve_ref(ref: str, website_url: Callable[[str], str] = website_url) -> st
         href = f'conf#{ref}'
     elif ref.startswith('conf-kitten-'):
         parts = ref.split('-')
-        href = "kittens/" + parts[2] + f'/#{ref}'
+        href = f"kittens/{parts[2]}" + f'/#{ref}'
     elif ref.startswith('at_'):
         base = ref.split('_', 1)[1]
         href = "remote-control/#at-" + base.replace('_', '-')
@@ -72,7 +69,7 @@ def resolve_ref(ref: str, website_url: Callable[[str], str] = website_url) -> st
     elif prefix == 'action':
         href = f'actions/#{rest.replace("_", "-")}'
     elif prefix in ('term', 'envvar'):
-        href = 'glossary/#' + ref
+        href = f'glossary/#{ref}'
     elif prefix == 'doc':
         href = rest.lstrip('/')
     elif prefix in ('issues', 'pull', 'discussions'):
@@ -111,10 +108,7 @@ def remove_markup(text: str) -> str:
         if key in ('ac', 'opt'):
             t, q = extract(m)
             return f'{t} {q}' if q and q != t else t
-        if key == 'code':
-            return m.group(2).replace('\\\\', '\\')
-
-        return str(m.group(2))
+        return m.group(2).replace('\\\\', '\\') if key == 'code' else str(m.group(2))
 
     return re.sub(r':([a-zA-Z0-9]+):`(.+?)`', sub, text, flags=re.DOTALL)
 
@@ -158,8 +152,7 @@ def wrapped_block(lines: Iterable[str], comment_symbol: str = '#: ') -> Iterator
                 else:
                     yield comment_symbol + line
         else:
-            for line in wrapper.wrap('\n'.join(block)):
-                yield line
+            yield from wrapper.wrap('\n'.join(block))
 
 
 def render_block(text: str, comment_symbol: str = '#: ') -> str:
@@ -333,8 +326,7 @@ class MultiOption:
         a(f'.. opt:: {conf_name}.{self.name}')
         documented = tuple(x for x in self.items if x.documented)
         if any(k.defval_as_str for k in documented):
-            defaults = tuple(x for x in documented if x.add_to_default)
-            if defaults:
+            if defaults := tuple(x for x in documented if x.add_to_default):
                 a('.. code-block:: conf')
                 a('')
                 for k in defaults:
@@ -544,17 +536,16 @@ class Group:
                 lines = item.as_rst(conf_name, shortcut_slugs, kitty_mod, level + 1)
             ans.extend(lines)
 
-        if level:
-            if self.end_text:
-                a('')
-                a(self.end_text)
+        if level and self.end_text:
+            a('')
+            a(self.end_text)
         return ans
 
     def as_conf(self, commented: bool = False, level: int = 0) -> List[str]:
         ans: List[str] = []
         a = ans.append
         if level:
-            a('#: ' + self.title + ' {{''{')
+            a(f'#: {self.title}' + ' {{''{')
             a('')
             if self.start_text:
                 a(render_block(self.start_text))
@@ -586,13 +577,11 @@ class Group:
                     if start is None:
                         start = i
                         count = 1
-                    else:
-                        if count is not None:
-                            count += 1
-                else:
-                    if start is not None and count is not None:
-                        map_groups.append((start, count))
-                        start = count = None
+                    elif count is not None:
+                        count += 1
+                elif start is not None and count is not None:
+                    map_groups.append((start, count))
+                    start = count = None
             for start, count in map_groups:
                 r = range(start, start + count)
                 sz = max(len(ans[i].split(' ', 3)[1]) for i in r)
@@ -620,8 +609,8 @@ def resolve_import(name: str, module: Any = None) -> ParserFuncType:
         ans = getattr(builtins, name, None)
         if not callable(ans):
             ans = getattr(generic_parsers, name, None)
-            if not callable(ans):
-                ans = getattr(module, name)
+        if not callable(ans):
+            ans = getattr(module, name)
     if not callable(ans):
         raise TypeError(f'{name} is not a function')
     return cast(ParserFuncType, ans)
@@ -668,9 +657,9 @@ class Definition:
 
     def iter_all_maps(self, which: str = 'map') -> Iterator[Union[ShortcutMapping, MouseMapping]]:
         for x in self.iter_all_non_groups():
-            if isinstance(x, ShortcutMapping) and which in ('map', '*'):
+            if isinstance(x, ShortcutMapping) and which in {'map', '*'}:
                 yield x
-            elif isinstance(x, MouseMapping) and which in ('mouse_map', '*'):
+            elif isinstance(x, MouseMapping) and which in {'mouse_map', '*'}:
                 yield x
 
     def parser_func(self, name: str) -> ParserFuncType:

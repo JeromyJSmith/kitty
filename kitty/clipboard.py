@@ -220,8 +220,7 @@ class ReadRequest(NamedTuple):
 
 def encode_osc52(loc: str, response: str) -> str:
     from base64 import standard_b64encode
-    return '52;{};{}'.format(
-        loc, standard_b64encode(response.encode('utf-8')).decode('ascii'))
+    return f"52;{loc};{standard_b64encode(response.encode('utf-8')).decode('ascii')}"
 
 
 class MimePos(NamedTuple):
@@ -251,8 +250,7 @@ class WriteRequest:
         ans = f'{self.protocol_type.value};type=write:status={status}'
         if self.id:
             ans += f':id={self.id}'
-        a = ans.encode('ascii')
-        return a
+        return ans.encode('ascii')
 
     def commit(self) -> None:
         if self.commited:
@@ -277,7 +275,7 @@ class WriteRequest:
             self.currently_writing_mime = mime
 
         def write_saving_leftover_bytes(data: bytes) -> None:
-            if len(data) == 0:
+            if not data:
                 return
             extra = len(data) % 4
             if extra > 0:
@@ -375,8 +373,7 @@ class ClipboardRequestManager:
             w = get_boss().window_id_map.get(self.window_id)
             if wr is None:
                 return
-            mime = m.get('mime', '')
-            if mime:
+            if mime := m.get('mime', ''):
                 try:
                     wr.add_base64_data(epayload, mime)
                 except OSError:
@@ -426,7 +423,10 @@ class ClipboardRequestManager:
         if not allowed or not cp.enabled:
             self.in_flight_write_request = None
             if w is not None:
-                w.screen.send_escape_code_to_child(OSC, wr.encode_response(status='EPERM' if not allowed else 'ENOSYS'))
+                w.screen.send_escape_code_to_child(
+                    OSC,
+                    wr.encode_response(status='ENOSYS' if allowed else 'EPERM'),
+                )
 
     def fulfill_legacy_write_request(self, wr: WriteRequest, allowed: bool = True) -> None:
         cp = get_boss().primary_selection if wr.is_primary_selection else get_boss().clipboard
@@ -496,9 +496,7 @@ class ClipboardRequestManager:
         cp = get_boss().primary_selection if rr.is_primary_selection else get_boss().clipboard
         w = get_boss().window_id_map.get(self.window_id)
         if w is not None:
-            text = ''
-            if cp.enabled and allowed:
-                text = cp.get_text()
+            text = cp.get_text() if cp.enabled and allowed else ''
             loc = 'p' if rr.is_primary_selection else 'c'
             w.screen.send_escape_code_to_child(OSC, encode_osc52(loc, text))
 

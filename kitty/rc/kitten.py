@@ -35,14 +35,21 @@ class Kitten(RemoteCommand):
         return {'match': opts.match, 'args': list(args)[1:], 'kitten': args[0]}
 
     def response_from_kitty(self, boss: Boss, window: Optional[Window], payload_get: PayloadGetType) -> ResponseType:
-        retval = None
-        for window in self.windows_for_match_payload(boss, window, payload_get):
-            if window:
-                retval = boss.run_kitten_with_metadata(payload_get('kitten'), args=tuple(payload_get('args') or ()), window=window)
-                break
-        if isinstance(retval, (str, bool)):
-            return retval
-        return None
+        retval = next(
+            (
+                boss.run_kitten_with_metadata(
+                    payload_get('kitten'),
+                    args=tuple(payload_get('args') or ()),
+                    window=window,
+                )
+                for window in self.windows_for_match_payload(
+                    boss, window, payload_get
+                )
+                if window
+            ),
+            None,
+        )
+        return retval if isinstance(retval, (str, bool)) else None
 
 
 kitten = Kitten()

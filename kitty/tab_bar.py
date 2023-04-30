@@ -73,21 +73,13 @@ class DrawData(NamedTuple):
 
     def tab_fg(self, tab: TabBarData) -> int:
         if tab.is_active:
-            if tab.active_fg is not None:
-                return tab.active_fg
-            return int(self.active_fg)
-        if tab.inactive_fg is not None:
-            return tab.inactive_fg
-        return int(self.inactive_fg)
+            return tab.active_fg if tab.active_fg is not None else int(self.active_fg)
+        return int(self.inactive_fg) if tab.inactive_fg is None else tab.inactive_fg
 
     def tab_bg(self, tab: TabBarData) -> int:
         if tab.is_active:
-            if tab.active_bg is not None:
-                return tab.active_bg
-            return int(self.active_bg)
-        if tab.inactive_bg is not None:
-            return tab.inactive_bg
-        return int(self.inactive_bg)
+            return tab.active_bg if tab.active_bg is not None else int(self.active_bg)
+        return int(self.inactive_bg) if tab.inactive_bg is None else tab.inactive_bg
 
 
 def as_rgb(x: int) -> int:
@@ -102,7 +94,7 @@ def report_template_failure(template: str, e: str) -> None:
 @lru_cache()
 def compile_template(template: str) -> Any:
     try:
-        return compile('f"""' + template + '"""', '<template>', 'eval')
+        return compile(f'f"""{template}"""', '<template>', 'eval')
     except Exception as e:
         report_template_failure(template, str(e))
 
@@ -189,10 +181,12 @@ def draw_attributed_string(title: str, screen: Screen) -> None:
 @lru_cache(maxsize=16)
 def template_has_field(template: str, field: str) -> bool:
     q = StringFormatter()
-    for (literal_text, field_name, format_spec, conversion) in q.parse(template):
-        if field_name and field in field_name.split():
-            return True
-    return False
+    return any(
+        field_name and field in field_name.split()
+        for literal_text, field_name, format_spec, conversion in q.parse(
+            template
+        )
+    )
 
 
 class TabAccessor:
@@ -368,9 +362,9 @@ def draw_tab_with_fade(
         screen.cursor.x = before
         draw_title(draw_data, screen, tab, index, max(0, max_tab_length - 4))
         extra = screen.cursor.x - before - max_tab_length
-        if extra > 0:
-            screen.cursor.x -= extra + 1
-            screen.draw('…')
+    if extra > 0:
+        screen.cursor.x -= extra + 1
+        screen.draw('…')
     for bg in reversed(fade_colors):
         if extra >= 0:
             break
@@ -654,7 +648,7 @@ class TabBar:
                 raise StopIteration()
 
         unconstrained_tab_length = max(1, s.columns - 2)
-        ideal_tab_lengths = [i for i in range(len(data))]
+        ideal_tab_lengths = list(range(len(data)))
         default_max_tab_length = max(1, (s.columns // max(1, len(data))) - 1)
         max_tab_lengths = [default_max_tab_length for _ in range(len(data))]
         active_idx = 0

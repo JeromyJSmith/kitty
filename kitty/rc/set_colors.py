@@ -47,7 +47,7 @@ def parse_colors(args: Iterable[str]) -> Dict[str, Optional[int]]:
     nullable_color_map: Dict[str, Optional[int]] = {}
     for spec in args:
         if '=' in spec:
-            colors.update(parse_config((spec.replace('=', ' '),)))
+            colors |= parse_config((spec.replace('=', ' '),))
         else:
             with open(os.path.expanduser(spec), encoding='utf-8', errors='replace') as f:
                 colors.update(parse_config(f))
@@ -56,8 +56,9 @@ def parse_colors(args: Iterable[str]) -> Dict[str, Optional[int]]:
         if q is not False:
             val = int(q) if isinstance(q, Color) else None
             nullable_color_map[k] = val
-    ans: Dict[str, Optional[int]] = {k: int(v) for k, v in colors.items() if isinstance(v, Color)}
-    ans.update(nullable_color_map)
+    ans: Dict[str, Optional[int]] = {
+        k: int(v) for k, v in colors.items() if isinstance(v, Color)
+    } | nullable_color_map
     return ans
 
 
@@ -110,12 +111,14 @@ this option, any color arguments are ignored and :option:`kitty @ set-colors --c
                 raise ParsingOfArgsFailed(f'The colors configuration file {emph(err.filename)} was not found.') from err
             except Exception as err:
                 raise ParsingOfArgsFailed(str(err)) from err
-        ans = {
-            'match_window': opts.match, 'match_tab': opts.match_tab,
-            'all': opts.all or opts.reset, 'configured': opts.configured or opts.reset,
-            'colors': final_colors, 'reset': opts.reset,
+        return {
+            'match_window': opts.match,
+            'match_tab': opts.match_tab,
+            'all': opts.all or opts.reset,
+            'configured': opts.configured or opts.reset,
+            'colors': final_colors,
+            'reset': opts.reset,
         }
-        return ans
 
     def response_from_kitty(self, boss: Boss, window: Optional[Window], payload_get: PayloadGetType) -> ResponseType:
         windows = self.windows_for_payload(boss, window, payload_get)

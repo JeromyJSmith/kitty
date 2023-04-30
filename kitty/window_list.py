@@ -41,24 +41,22 @@ class WindowGroup:
         return iter(self.windows)
 
     def __contains__(self, window: WindowType) -> bool:
-        for w in self.windows:
-            if w is window:
-                return True
-        return False
+        return any(w is window for w in self.windows)
 
     @property
     def needs_attention(self) -> bool:
-        for w in self.windows:
-            if w.needs_attention:
-                return True
-        return False
+        return any(w.needs_attention for w in self.windows)
 
     @property
     def main_window_id(self) -> int:
-        for w in reversed(self.windows):
-            if w.overlay_type is OverlayType.main:
-                return w.id
-        return self.windows[0].id if self.windows else 0
+        return next(
+            (
+                w.id
+                for w in reversed(self.windows)
+                if w.overlay_type is OverlayType.main
+            ),
+            self.windows[0].id if self.windows else 0,
+        )
 
     @property
     def active_window_id(self) -> int:
@@ -210,10 +208,14 @@ class WindowList:
         return changed
 
     def set_active_group(self, group_id: int) -> bool:
-        for i, gr in enumerate(self.groups):
-            if gr.id == group_id:
-                return self.set_active_group_idx(i)
-        return False
+        return next(
+            (
+                self.set_active_group_idx(i)
+                for i, gr in enumerate(self.groups)
+                if gr.id == group_id
+            ),
+            False,
+        )
 
     def change_tab(self, tab: TabType) -> None:
         self.tabref = weakref.ref(tab)
@@ -257,17 +259,11 @@ class WindowList:
 
     def group_for_window(self, x: WindowOrId) -> Optional[WindowGroup]:
         q = self.id_map[x] if isinstance(x, int) else x
-        for g in self.groups:
-            if q in g:
-                return g
-        return None
+        return next((g for g in self.groups if q in g), None)
 
     def group_idx_for_window(self, x: WindowOrId) -> Optional[int]:
         q = self.id_map[x] if isinstance(x, int) else x
-        for i, g in enumerate(self.groups):
-            if q in g:
-                return i
-        return None
+        return next((i for i, g in enumerate(self.groups) if q in g), None)
 
     def move_window_to_top_of_group(self, window: WindowType) -> bool:
         g = self.group_for_window(window)
@@ -284,9 +280,7 @@ class WindowList:
 
     def windows_in_group_of(self, x: WindowOrId) -> Iterator[WindowType]:
         g = self.group_for_window(x)
-        if g is not None:
-            return iter(g)
-        return iter(())
+        return iter(g) if g is not None else iter(())
 
     @property
     def active_group(self) -> Optional[WindowGroup]:
@@ -331,17 +325,10 @@ class WindowList:
     ) -> WindowGroup:
         self.all_windows.append(window)
         self.id_map[window.id] = window
-        target_group: Optional[WindowGroup] = None
-
-        if group_of is not None:
-            target_group = self.group_for_window(group_of)
+        target_group = None if group_of is None else self.group_for_window(group_of)
         if target_group is None and next_to is not None:
             q = self.id_map[next_to] if isinstance(next_to, int) else next_to
-            pos = -1
-            for i, g in enumerate(self.groups):
-                if q in g:
-                    pos = i
-                    break
+            pos = next((i for i, g in enumerate(self.groups) if q in g), -1)
             if pos > -1:
                 target_group = WindowGroup()
                 self.groups.insert(pos + (0 if before else 1), target_group)
@@ -367,10 +354,8 @@ class WindowList:
     def remove_window(self, x: WindowOrId) -> None:
         old_active_window = self.active_window
         q = self.id_map[x] if isinstance(x, int) else x
-        try:
+        with suppress(ValueError):
             self.all_windows.remove(q)
-        except ValueError:
-            pass
         self.id_map.pop(q.id, None)
         for i, g in enumerate(tuple(self.groups)):
             g.remove_window(q)
@@ -423,8 +408,4 @@ class WindowList:
 
     @property
     def num_visble_groups(self) -> int:
-        ans = 0
-        for gr in self.groups:
-            if gr.is_visible_in_layout:
-                ans += 1
-        return ans
+        return sum(1 for gr in self.groups if gr.is_visible_in_layout)

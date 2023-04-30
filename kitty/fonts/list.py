@@ -36,6 +36,6 @@ def main(argv: Sequence[str]) -> None:
             if isatty:
                 p = f'\033[3m{p}\033[m'
             if psnames:
-                p += ' ({})'.format(f['postscript_name'])
+                p += f" ({f['postscript_name']})"
             print('   ', p)
         print()

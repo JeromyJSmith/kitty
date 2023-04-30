@@ -71,7 +71,7 @@ using this option means that you will not be notified of failures.
                             unit = 'line'
                         direction = 'up' if amt < 0 else 'down'
                         func = getattr(window, f'scroll_{unit}_{direction}')
-                        for i in range(int(abs(amt))):
+                        for _ in range(int(abs(amt))):
                             func()
         return None
 

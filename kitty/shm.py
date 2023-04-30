@@ -22,14 +22,13 @@ def make_filename(prefix: str) -> str:
     # to make double unlink safe.
     if not prefix.startswith('/'):
         # FreeBSD requires name to start with /
-        prefix = '/' + prefix
+        prefix = f'/{prefix}'
     plen = len(prefix.encode('utf-8'))
     safe_length = min(plen + 64, SHM_NAME_MAX)
     if safe_length - plen < 2:
         raise OSError(errno.ENAMETOOLONG, f'SHM filename prefix {prefix} is too long')
     nbytes = (safe_length - plen) // 2
-    name = prefix + secrets.token_hex(nbytes)
-    return name
+    return prefix + secrets.token_hex(nbytes)
 
 
 class SharedMemory:

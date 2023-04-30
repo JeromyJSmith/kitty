@@ -55,9 +55,7 @@ else:
         identifier: Optional[str] = None,
         subtitle: Optional[str] = None,
     ) -> None:
-        icf = ''
-        if icon is True:
-            icf = logo_png_file
+        icf = logo_png_file if icon else ''
         alloc_id = dbus_send_notification(application, icf, title, body, 'Click to see changes', timeout)
         if alloc_id and identifier is not None:
             alloc_map[alloc_id] = identifier

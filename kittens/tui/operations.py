@@ -117,9 +117,7 @@ def without_line_wrap(write: Callable[[str], None]) -> Generator[None, None, Non
 
 @cmd
 def repeat(char: str, count: int) -> str:
-    if count > 5:
-        return f'{char}\x1b[{count-1}b'
-    return char * count
+    return f'{char}\x1b[{count - 1}b' if count > 5 else char * count
 
 
 @cmd
@@ -175,17 +173,16 @@ ColorSpec = Union[int, str, Color]
 
 def color_code(color: ColorSpec, intense: bool = False, base: int = 30) -> str:
     if isinstance(color, str):
-        e = str((base + 60 if intense else base) + STANDARD_COLORS[color])
+        return str((base + 60 if intense else base) + STANDARD_COLORS[color])
     elif isinstance(color, int):
-        e = f'{base + 8}:5:{max(0, min(color, 255))}'
+        return f'{base + 8}:5:{max(0, min(color, 255))}'
     else:
-        e = f'{base + 8}{color.as_sgr}'
-    return e
+        return f'{base + 8}{color.as_sgr}'
 
 
 @cmd
 def sgr(*parts: str) -> str:
-    return '\033[{}m'.format(';'.join(parts))
+    return f"\033[{';'.join(parts)}m"
 
 
 @cmd
@@ -250,9 +247,7 @@ def styled(
         s, e = (start, end) if reverse else (end, start)
         s.append('7')
         e.append('27')
-    if not start:
-        return text
-    return '\033[{}m{}\033[{}m'.format(';'.join(start), text, ';'.join(end))
+    return f"\033[{';'.join(start)}m{text}\033[{';'.join(end)}m" if start else text
 
 
 def serialize_gr_command(cmd: Dict[str, Union[int, str]], payload: Optional[bytes] = None) -> bytes:
@@ -311,19 +306,13 @@ def init_state(alternate_screen: bool = True, mouse_tracking: MouseTracking = Mo
             ans += set_mode(Mode.MOUSE_MOTION_TRACKING)
         elif mouse_tracking is MouseTracking.full:
             ans += set_mode(Mode.MOUSE_MOVE_TRACKING)
-    if kitty_keyboard_mode:
-        ans += '\033[>31u'  # extended keyboard mode
-    else:
-        ans += '\033[>u'  # legacy keyboard mode
+    ans += '\033[>31u' if kitty_keyboard_mode else '\033[>u'
     return ans
 
 
 def reset_state(normal_screen: bool = True) -> str:
     ans = '\033[<u'  # restore keyboard mode
-    if normal_screen:
-        ans += reset_mode(Mode.ALTERNATE_SCREEN)
-    else:
-        ans += SAVE_CURSOR
+    ans += reset_mode(Mode.ALTERNATE_SCREEN) if normal_screen else SAVE_CURSOR
     ans += RESTORE_PRIVATE_MODE_VALUES
     ans += RESTORE_CURSOR
     ans += RESTORE_COLORS
@@ -430,7 +419,7 @@ def write_to_clipboard(data: Union[str, bytes], use_primary: bool = False) -> st
 
 @cmd
 def request_from_clipboard(use_primary: bool = False) -> str:
-    return '\x1b]52;{};?\a'.format('p' if use_primary else 'c')
+    return f"\x1b]52;{'p' if use_primary else 'c'};?\a"
 
 
 # Boilerplate to make operations available via Handler.cmd  {{{

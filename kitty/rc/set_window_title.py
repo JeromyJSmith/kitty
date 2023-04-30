@@ -34,8 +34,7 @@ again. If you want to allow other programs to change it afterwards, use this opt
 
     def message_to_kitty(self, global_opts: RCOptions, opts: 'CLIOptions', args: ArgsType) -> PayloadType:
         ans = {'match': opts.match, 'temporary': opts.temporary}
-        title = ' '.join(args)
-        if title:
+        if title := ' '.join(args):
             ans['title'] = title
         # defaults to set the window title this command is run in
         ans['self'] = True

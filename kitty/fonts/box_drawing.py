@@ -154,7 +154,7 @@ def downsample(src: BufType, dest: BufType, dest_width: int, dest_height: int, f
             offset = src_width * y
             for x in range(src_x, src_x + factor):
                 total += src[offset + x]
-        return total // (factor * factor)
+        return total // factor**2
 
     for y in range(dest_height):
         offset = dest_width * y
@@ -203,10 +203,7 @@ def line_equation(x1: int, y1: int, x2: int, y2: int) -> Callable[[int], float]:
 @supersampled()
 def triangle(buf: SSByteArray, width: int, height: int, left: bool = True) -> None:
     ay1, by1, y2 = 0, height - 1, height // 2
-    if left:
-        x1, x2 = 0, width - 1
-    else:
-        x1, x2 = width - 1, 0
+    x1, x2 = (0, width - 1) if left else (width - 1, 0)
     uppery = line_equation(x1, ay1, x2, y2)
     lowery = line_equation(x1, by1, x2, y2)
     xlimits = [(uppery(x), lowery(x)) for x in range(width)]
@@ -215,27 +212,38 @@ def triangle(buf: SSByteArray, width: int, height: int, left: bool = True) -> No
 
 @supersampled()
 def corner_triangle(buf: SSByteArray, width: int, height: int, corner: str) -> None:
-    if corner == 'top-right' or corner == 'bottom-left':
+    if corner in {'top-right', 'bottom-left'}:
         diagonal_y = line_equation(0, 0, width - 1, height - 1)
-        if corner == 'top-right':
-            xlimits = [(0., diagonal_y(x)) for x in range(width)]
-        elif corner == 'bottom-left':
-            xlimits = [(diagonal_y(x), height - 1.) for x in range(width)]
+        xlimits = (
+            [(0.0, diagonal_y(x)) for x in range(width)]
+            if corner == 'top-right'
+            else [(diagonal_y(x), height - 1.0) for x in range(width)]
+        )
     else:
         diagonal_y = line_equation(width - 1, 0, 0, height - 1)
-        if corner == 'top-left':
-            xlimits = [(0., diagonal_y(x)) for x in range(width)]
-        elif corner == 'bottom-right':
+        if corner == 'bottom-right':
             xlimits = [(diagonal_y(x), height - 1.) for x in range(width)]
+        elif corner == 'top-left':
+            xlimits = [(0., diagonal_y(x)) for x in range(width)]
     fill_region(buf, width, height, xlimits)
 
 
 @supersampled()
 def half_triangle(buf: SSByteArray, width: int, height: int, which: str = 'left', inverted: bool = False) -> None:
     mid_x, mid_y = width // 2, height // 2
-    if which == 'left':
+    if which == 'bottom':
+        first_y = line_equation(0, height - 1, mid_x, mid_y)
+        first_ = tuple((first_y(x), height - 1) for x in range(mid_x))
+        second_y = line_equation(mid_x, mid_y, width - 1, height - 1)
+        second_ = tuple((second_y(x), height - 1) for x in range(mid_x, width))
+        limits = first_ + second_
+    elif which == 'left':
         upper_y = line_equation(0, 0, mid_x, mid_y)
         lower_y = line_equation(0, height - 1, mid_x, mid_y)
+        limits = tuple((upper_y(x), lower_y(x)) for x in range(width))
+    elif which == 'right':
+        upper_y = line_equation(mid_x, mid_y, width - 1, 0)
+        lower_y = line_equation(mid_x, mid_y, width - 1, height - 1)
         limits = tuple((upper_y(x), lower_y(x)) for x in range(width))
     elif which == 'top':
         first_y = line_equation(0, 0, mid_x, mid_y)
@@ -243,16 +251,6 @@ def half_triangle(buf: SSByteArray, width: int, height: int, which: str = 'left'
         second_y = line_equation(mid_x, mid_y, width - 1, 0)
         second = tuple((0, second_y(x)) for x in range(mid_x, width))
         limits = first + second
-    elif which == 'right':
-        upper_y = line_equation(mid_x, mid_y, width - 1, 0)
-        lower_y = line_equation(mid_x, mid_y, width - 1, height - 1)
-        limits = tuple((upper_y(x), lower_y(x)) for x in range(width))
-    elif which == 'bottom':
-        first_y = line_equation(0, height - 1, mid_x, mid_y)
-        first_ = tuple((first_y(x), height - 1) for x in range(mid_x))
-        second_y = line_equation(mid_x, mid_y, width - 1, height - 1)
-        second_ = tuple((second_y(x), height - 1) for x in range(mid_x, width))
-        limits = first_ + second_
     fill_region(buf, width, height, limits, inverted)
 
 
@@ -329,8 +327,9 @@ def cubic_bezier(start: Tuple[int, int], end: Tuple[int, int], c1: Tuple[int, in
         def f(t: float) -> float:
             tm1 = 1 - t
             tm1_3 = tm1 * tm1 * tm1
-            t_3 = t * t * t
+            t_3 = t**2 * t
             return tm1_3 * p0 + 3 * t * tm1 * (tm1 * p1 + t * p2) + t_3 * p3
+
         return f
 
     bezier_x = bezier_eq(start[0], c1[0], c2[0], end[0])
@@ -632,10 +631,11 @@ def shade(buf: BufType, width: int, height: int, light: bool = False, invert: bo
                 break
             off = width * y
             for c in range(number_of_cols):
-                if light:
-                    fill = (c % 4) == (0 if fill_even else 2)
-                else:
-                    fill = (c % 2 == 0) == fill_even
+                fill = (
+                    (c % 4) == (0 if fill_even else 2)
+                    if light
+                    else (c % 2 == 0) == fill_even
+                )
                 if fill:
                     for xc in nums:
                         x = (c * square_sz) + xc
@@ -672,10 +672,7 @@ def sextant(buf: BufType, width: int, height: int, level: int = 1, which: int = 
             y_start, y_end = height // 3, 2 * height // 3
         else:
             y_start, y_end = 2 * height // 3, height
-        if col == 0:
-            x_start, x_end = 0, width // 2
-        else:
-            x_start, x_end = width // 2, width
+        x_start, x_end = (0, width // 2) if col == 0 else (width // 2, width)
         for r in range(y_start, y_end):
             off = r * width
             for c in range(x_start, x_end):

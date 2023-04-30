@@ -41,7 +41,7 @@ def read_digit(text: str, pos: int, max_len: int, valid_digits: str, base: int) 
 
 
 def read_hex_digit(text: str, pos: int, max_len: int) -> Tuple[str, int]:
-    return read_digit(text, pos, max_len, string.digits + 'abcdefABCDEF', 16)
+    return read_digit(text, pos, max_len, f'{string.digits}abcdefABCDEF', 16)
 
 
 def read_octal_digit(text: str, pos: int) -> Tuple[str, int]:

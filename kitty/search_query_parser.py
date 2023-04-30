@@ -11,9 +11,7 @@ class ParseException(Exception):
 
     @property
     def msg(self) -> str:
-        if len(self.args) > 0:
-            return str(self.args[0])
-        return ""
+        return str(self.args[0]) if len(self.args) > 0 else ""
 
 
 class ExpressionType(Enum):
@@ -147,9 +145,7 @@ class Parser:
         return res.lower()
 
     def token_type(self) -> TokenType:
-        if self.is_eof():
-            return TokenType.EOF
-        return self.tokens[self.current_token].type
+        return TokenType.EOF if self.is_eof() else self.tokens[self.current_token].type
 
     def is_eof(self) -> bool:
         return self.current_token >= len(self.tokens)

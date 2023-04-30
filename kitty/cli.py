@@ -421,7 +421,7 @@ def parse_option_spec(spec: Optional[str] = None) -> Tuple[OptionSpecSeq, Option
                 state = HELP
                 current_cmd['help'] += line
             else:
-                k, v = m.group(1), m.group(2)
+                k, v = m[1], m[2]
                 if k == 'choices':
                     vals = tuple(x.strip() for x in v.split(','))
                     current_cmd['choices'] = frozenset(vals)
@@ -486,10 +486,9 @@ def prettify_rst(text: str) -> str:
 def version(add_rev: bool = False) -> str:
     rev = ''
     from . import fast_data_types
-    if add_rev:
-        if getattr(fast_data_types, 'KITTY_VCS_REV', ''):
-            rev = f' ({fast_data_types.KITTY_VCS_REV[:10]})'
-    return '{} {}{} created by {}'.format(italic(appname), green(str_version), rev, title('Kovid Goyal'))
+    if add_rev and getattr(fast_data_types, 'KITTY_VCS_REV', ''):
+        rev = f' ({fast_data_types.KITTY_VCS_REV[:10]})'
+    return f"{italic(appname)} {green(str_version)}{rev} created by {title('Kovid Goyal')}"
 
 
 def wrap(text: str, limit: int = 80) -> Iterator[str]:
@@ -546,10 +545,11 @@ def wrap(text: str, limit: int = 80) -> Iterator[str]:
 
 
 def get_defaults_from_seq(seq: OptionSpecSeq) -> Dict[str, Any]:
-    ans: Dict[str, Any] = {}
-    for opt in seq:
-        if not isinstance(opt, str):
-            ans[opt['dest']] = defval_for_opt(opt)
+    ans: Dict[str, Any] = {
+        opt['dest']: defval_for_opt(opt)
+        for opt in seq
+        if not isinstance(opt, str)
+    }
     return ans
 
 
@@ -606,10 +606,9 @@ class PrintHelpForSeq:
                 continue  # hidden option
             a('  ' + ', '.join(map(green, sorted(opt['aliases'], reverse=True))))
             defval = opt.get('default')
-            if not opt.get('type', '').startswith('bool-'):
-                if defval:
-                    dt = '=[{}]'.format(italic(defval))
-                    blocks[-1] += dt
+            if not opt.get('type', '').startswith('bool-') and defval:
+                dt = '=[{}]'.format(italic(defval))
+                blocks[-1] += dt
             if opt.get('help'):
                 t = help_text.replace('%default', str(defval)).strip()
                 # replace rst literal code block syntax
@@ -673,10 +672,11 @@ def seq_as_rst(
         if help_text == '!':
             continue  # hidden option
         defn = '.. option:: '
-        if not opt.get('type', '').startswith('bool-'):
-            val_name = ' <{}>'.format(opt['dest'].upper())
-        else:
-            val_name = ''
+        val_name = (
+            ''
+            if opt.get('type', '').startswith('bool-')
+            else f" <{opt['dest'].upper()}>"
+        )
         a(defn + ', '.join(o + val_name for o in sorted(opt['aliases'])))
         if opt.get('help'):
             defval = opt.get('default')
@@ -687,11 +687,15 @@ def seq_as_rst(
             if defval is not None:
                 a(textwrap.indent(f'Default: :code:`{defval}`', ' ' * 4))
             if opt.get('choices'):
-                a(textwrap.indent('Choices: {}'.format(', '.join(f':code:`{c}`' for c in sorted(opt['choices']))), ' ' * 4))
+                a(
+                    textwrap.indent(
+                        f"Choices: {', '.join(f':code:`{c}`' for c in sorted(opt['choices']))}",
+                        ' ' * 4,
+                    )
+                )
             a('')
 
-    text = '\n'.join(blocks)
-    return text
+    return '\n'.join(blocks)
 
 
 def as_type_stub(seq: OptionSpecSeq, disabled: OptionSpecSeq, class_name: str, extra_fields: Sequence[str] = ()) -> str:
@@ -710,7 +714,7 @@ def as_type_stub(seq: OptionSpecSeq, disabled: OptionSpecSeq, class_name: str, e
             t = 'typing.Sequence[str]'
         elif otype in ('choice', 'choices'):
             if opt['choices']:
-                t = 'typing.Literal[{}]'.format(','.join(f'{x!r}' for x in opt['choices']))
+                t = f"typing.Literal[{','.join(f'{x!r}' for x in opt['choices'])}]"
             else:
                 t = 'str'
         elif otype.startswith('bool-'):
@@ -718,8 +722,7 @@ def as_type_stub(seq: OptionSpecSeq, disabled: OptionSpecSeq, class_name: str, e
         else:
             raise ValueError(f'Unknown CLI option type: {otype}')
         ans.append(f'    {name}: {t}')
-    for x in extra_fields:
-        ans.append(f'    {x}')
+    ans.extend(f'    {x}' for x in extra_fields)
     return '\n'.join(ans) + '\n\n\n'
 
 
@@ -727,10 +730,7 @@ def defval_for_opt(opt: OptionDict) -> Any:
     dv: Any = opt.get('default')
     typ = opt.get('type', '')
     if typ.startswith('bool-'):
-        if dv is None:
-            dv = False if typ == 'bool-set' else True
-        else:
-            dv = dv.lower() in ('true', 'yes', 'y')
+        dv = typ != 'bool-set' if dv is None else dv.lower() in ('true', 'yes', 'y')
     elif typ == 'list':
         dv = []
     elif typ in ('int', 'float'):
@@ -762,7 +762,7 @@ class Options:
         return opt
 
     def needs_arg(self, alias: str) -> bool:
-        if alias in ('-h', '--help'):
+        if alias in {'-h', '--help'}:
             print_help_for_seq(self.seq, self.usage, self.message, self.appname or appname)
             raise SystemExit(0)
         opt = self.opt_for_alias(alias)
@@ -787,16 +787,18 @@ class Options:
         elif typ == 'choices':
             choices = opt['choices']
             if val not in choices:
-                raise SystemExit('{} is not a valid value for the {} option. Valid values are: {}'.format(
-                    val, emph(alias), ', '.join(choices)))
+                raise SystemExit(
+                    f"{val} is not a valid value for the {emph(alias)} option. Valid values are: {', '.join(choices)}"
+                )
             self.values_map[name] = val
         elif typ in nmap:
             f = nmap[typ]
             try:
                 self.values_map[name] = f(val)
             except Exception:
-                raise SystemExit('{} is not a valid value for the {} option, a number is required.'.format(
-                    val, emph(alias)))
+                raise SystemExit(
+                    f'{val} is not a valid value for the {emph(alias)} option, a number is required.'
+                )
         else:
             self.values_map[name] = val
 
@@ -1051,10 +1053,7 @@ def parse_args(
     options = parse_option_spec(ospec())
     seq, disabled = options
     oc = Options(seq, usage, message, appname)
-    if result_class is not None:
-        ans = result_class()
-    else:
-        ans = cast(T, CLIOptions())
+    ans = result_class() if result_class is not None else cast(T, CLIOptions())
     return ans, parse_cmdline(oc, disabled, ans, args=args)
 
 
@@ -1071,12 +1070,12 @@ def create_opts(args: CLIOptions, accumulate_bad_lines: Optional[List[BadLineTyp
     # Does not cover the case where `name =` when `=` is the value.
     pat = re.compile(r'^([a-zA-Z0-9_]+)[ \t]*=')
     overrides = (pat.sub(r'\1 ', a.lstrip()) for a in args.override or ())
-    opts = load_config(*config, overrides=overrides, accumulate_bad_lines=accumulate_bad_lines)
-    return opts
+    return load_config(
+        *config, overrides=overrides, accumulate_bad_lines=accumulate_bad_lines
+    )
 
 
 def create_default_opts() -> KittyOpts:
     from .config import load_config
     config = default_config_paths(())
-    opts = load_config(*config)
-    return opts
+    return load_config(*config)

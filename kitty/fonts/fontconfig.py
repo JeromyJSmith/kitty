@@ -49,12 +49,7 @@ def create_font_map(all_fonts: Tuple[FontConfigPattern, ...]) -> FontMap:
 
 @lru_cache()
 def all_fonts_map(monospaced: bool = True) -> FontMap:
-    if monospaced:
-        ans = fc_list(FC_DUAL) + fc_list(FC_MONO)
-    else:
-        # allow non-monospaced and bitmapped fonts as these are used for
-        # symbol_map
-        ans = fc_list(-1, True)
+    ans = fc_list(FC_DUAL) + fc_list(FC_MONO) if monospaced else fc_list(-1, True)
     return create_font_map(ans)
 
 
@@ -62,8 +57,7 @@ def list_fonts() -> Generator[ListedFont, None, None]:
     for fd in fc_list():
         f = fd.get('family')
         if f and isinstance(f, str):
-            fn_ = fd.get('full_name')
-            if fn_:
+            if fn_ := fd.get('full_name'):
                 fn = str(fn_)
             else:
                 fn = f'{f} {fd.get("style", "")}'.strip()

@@ -20,8 +20,7 @@ def get_key_press(allowed: str, default: str) -> str:
         print(set_cursor_visible(False), end='', flush=True)
         try:
             while True:
-                q = sys.stdin.buffer.read(1)
-                if q:
+                if q := sys.stdin.buffer.read(1):
                     if q in b'\x1b\x03':
                         break
                     with suppress(Exception):
@@ -120,6 +119,4 @@ def running_in_tmux() -> str:
     if not c:
         return ''
     exe = os.path.basename(c[0])
-    if exe.lower() == 'tmux':
-        return exe
-    return ''
+    return exe if exe.lower() == 'tmux' else ''

@@ -150,8 +150,7 @@ def get_macos_shortcut_for(
     ans = None
     candidates = []
     qkey = tuple(defn.split())
-    candidates = func_map[qkey]
-    if candidates:
+    if candidates := func_map[qkey]:
         from .fast_data_types import cocoa_set_global_shortcut
         alt_mods = GLFW_MOD_ALT, GLFW_MOD_ALT | GLFW_MOD_SHIFT
         # Reverse list so that later defined keyboard shortcuts take priority over earlier defined ones
@@ -186,7 +185,7 @@ def set_macos_app_custom_icon() -> None:
             if sentinel_mtime is None or sentinel_mtime < custom_icon_mtime:
                 try:
                     cocoa_set_app_icon(icon_path, bundle_path)
-                except (FileNotFoundError, OSError) as e:
+                except OSError as e:
                     log_error(str(e))
                     log_error('Failed to set custom app icon, ignoring')
             # macOS Dock does not reload icons until it is restarted, so we set
@@ -379,14 +378,13 @@ def ensure_kitty_in_path() -> None:
     rpath = krd.get('bundle_exe_dir')
     if not rpath:
         return
-    if rpath:
-        modify_path = is_macos or getattr(sys, 'frozen', False) or krd.get('from_source')
-        existing = shutil.which('kitty')
-        if modify_path or not existing:
-            env_path = os.environ.get('PATH', '')
-            correct_kitty = os.path.join(rpath, 'kitty')
-            if not existing or not safe_samefile(existing, correct_kitty):
-                os.environ['PATH'] = prepend_if_not_present(rpath, env_path)
+    modify_path = is_macos or getattr(sys, 'frozen', False) or krd.get('from_source')
+    existing = shutil.which('kitty')
+    if modify_path or not existing:
+        env_path = os.environ.get('PATH', '')
+        correct_kitty = os.path.join(rpath, 'kitty')
+        if not existing or not safe_samefile(existing, correct_kitty):
+            os.environ['PATH'] = prepend_if_not_present(rpath, env_path)
 
 
 def ensure_kitten_in_path() -> None:
@@ -424,8 +422,7 @@ def setup_environment(opts: Options, cli_opts: CLIOptions) -> None:
     env = opts.env.copy()
     ensure_kitty_in_path()
     ensure_kitten_in_path()
-    kitty_path = shutil.which('kitty')
-    if kitty_path:
+    if kitty_path := shutil.which('kitty'):
         child_path = env.get('PATH')
         # if child_path is None it will be inherited from os.environ,
         # the other values mean the user doesn't want a PATH

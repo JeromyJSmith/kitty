@@ -44,11 +44,10 @@ Detach the window this command is run in, rather than the active window.
         if match:
             if match == 'new':
                 target_tab_id = newval
-            else:
-                tabs = tuple(boss.match_tabs(match))
-                if not tabs:
-                    raise MatchError(match, 'tabs')
+            elif tabs := tuple(boss.match_tabs(match)):
                 target_tab_id = tabs[0].id
+            else:
+                raise MatchError(match, 'tabs')
         kwargs = {'target_os_window_id': newval} if target_tab_id is None else {'target_tab_id': target_tab_id}
         for window in windows:
             if window:

@@ -31,10 +31,10 @@ with open('kitty/constants.py') as f:
     raw = f.read()
 nv = re.search(r'^version: Version\s+=\s+Version\((\d+), (\d+), (\d+)\)', raw, flags=re.MULTILINE)
 if nv is not None:
-    version = f'{nv.group(1)}.{nv.group(2)}.{nv.group(3)}'
+    version = f'{nv[1]}.{nv[2]}.{nv[3]}'
 ap = re.search(r"^appname: str\s+=\s+'([^']+)'", raw, flags=re.MULTILINE)
 if ap is not None:
-    appname = ap.group(1)
+    appname = ap[1]
 
 ALL_ACTIONS = 'man html build tag sdist upload website'.split()
 NIGHTLY_ACTIONS = 'man html build sdist upload_nightly'.split()
@@ -50,10 +50,7 @@ def echo_cmd(cmd: Iterable[str]) -> None:
 
 
 def call(*cmd: str, cwd: Optional[str] = None, echo: bool = False) -> None:
-    if len(cmd) == 1:
-        q = shlex.split(cmd[0])
-    else:
-        q = list(cmd)
+    q = shlex.split(cmd[0]) if len(cmd) == 1 else list(cmd)
     if echo:
         echo_cmd(cmd)
     ret = subprocess.Popen(q, cwd=cwd).wait()
@@ -82,8 +79,10 @@ def run_build(args: Any) -> None:
 
     for x in ('64', '32', 'arm64'):
         prefix = f'python ../bypy linux --arch {x} '
-        run_with_retry(prefix + f'program --non-interactive --extra-program-data "{vcs_rev}"')
-        call(prefix + 'shutdown', echo=True)
+        run_with_retry(
+            f'{prefix}program --non-interactive --extra-program-data "{vcs_rev}"'
+        )
+        call(f'{prefix}shutdown', echo=True)
     run_with_retry(f'python ../bypy macos program --sign-installers --notarize --non-interactive --extra-program-data "{vcs_rev}"')
     call('python ../bypy macos shutdown', echo=True)
     call('make debug')
@@ -246,7 +245,7 @@ class GitHub:  # {{{
             files, reponame, version, username, password, replace)
         self.current_tag_name = self.version if self.version == 'nightly' else f'v{self.version}'
         self.is_nightly = self.current_tag_name == 'nightly'
-        self.auth = 'Basic ' + base64.standard_b64encode(f'{self.username}:{self.password}'.encode()).decode()
+        self.auth = f"Basic {base64.standard_b64encode(f'{self.username}:{self.password}'.encode()).decode()}"
         self.url_base = f'{self.API}/repos/{self.username}/{self.reponame}/releases'
 
     def info(self, *args: Any) -> None:
@@ -267,7 +266,7 @@ class GitHub:  # {{{
             'X-GitHub-Api-Version': '2022-11-28',
         }
         if params:
-            url += '?' + urlencode(params)
+            url += f'?{urlencode(params)}'
         rdata: Optional[Union[bytes, io.FileIO]] = None
         if data is not None:
             rdata = json.dumps(data).encode('utf-8')
@@ -381,12 +380,16 @@ class GitHub:  # {{{
         raise SystemExit(1)
 
     def existing_assets_for_release(self, release: Dict[str, Any]) -> List[Dict[str, Any]]:
-        if 'assets' in release:
-            d: List[Dict[str, Any]] = release['assets']
-        else:
-            d = self.make_request_with_retries(
-                release['assets_url'], params={'per_page': '64'}, failure_msg='Failed to get assets for release', return_data=True)
-        return d
+        return (
+            release['assets']
+            if 'assets' in release
+            else self.make_request_with_retries(
+                release['assets_url'],
+                params={'per_page': '64'},
+                failure_msg='Failed to get assets for release',
+                return_data=True,
+            )
+        )
 
     def create_release(self) -> Dict[str, Any]:
         ' Create a release on GitHub or if it already exists, return the existing release '

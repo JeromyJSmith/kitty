@@ -351,9 +351,8 @@ class Loop:
             self.handler.on_file_transfer_response(FileTransmissionCommand.deserialize(data[idx+1:]))
 
     def _on_apc(self, apc: str) -> None:
-        if apc.startswith('G'):
-            if self.handler.image_manager is not None:
-                self.handler.image_manager.handle_response(apc)
+        if apc.startswith('G') and self.handler.image_manager is not None:
+            self.handler.image_manager.handle_response(apc)
     # }}}
 
     @property

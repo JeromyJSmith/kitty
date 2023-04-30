@@ -58,7 +58,7 @@ def unicode_version() -> Tuple[int, int, int]:
     for line in get_data("ReadMe.txt"):
         m = re.search(r'Version\s+(\d+)\.(\d+)\.(\d+)', line)
         if m is not None:
-            return int(m.group(1)), int(m.group(2)), int(m.group(3))
+            return int(m[1]), int(m[2]), int(m[3])
     raise ValueError('Could not find Unicode Version')
 
 
@@ -157,12 +157,10 @@ def parse_ucd() -> None:
 
 def parse_range_spec(spec: str) -> Set[int]:
     spec = spec.strip()
-    if '..' in spec:
-        chars_ = tuple(map(lambda x: int(x, 16), filter(None, spec.split('.'))))
-        chars = set(range(chars_[0], chars_[1] + 1))
-    else:
-        chars = {int(spec, 16)}
-    return chars
+    if '..' not in spec:
+        return {int(spec, 16)}
+    chars_ = tuple(map(lambda x: int(x, 16), filter(None, spec.split('.'))))
+    return set(range(chars_[0], chars_[1] + 1))
 
 
 def split_two(line: str) -> Tuple[Set[int], str]:
@@ -378,16 +376,13 @@ def classes_to_regex(classes: Iterable[str], exclude: str = '', for_go: bool = T
 
     if for_go:
         def as_string(codepoint: int) -> str:
-            if codepoint < 256:
-                return fr'\x{codepoint:02x}'
-            return fr'\x{{{codepoint:x}}}'
+            return f'\x{codepoint:02x}' if codepoint < 256 else f'\x{{{codepoint:x}}}'
+
     else:
         def as_string(codepoint: int) -> str:
             if codepoint < 256:
                 return fr'\x{codepoint:02x}'
-            if codepoint <= 0xffff:
-                return fr'\u{codepoint:04x}'
-            return fr'\U{codepoint:08x}'
+            return f'\u{codepoint:04x}' if codepoint <= 0xffff else f'\U{codepoint:08x}'
 
     for spec in get_ranges(list(chars)):
         if isinstance(spec, tuple):
@@ -463,9 +458,8 @@ def gen_names() -> None:
         for cp in sorted(name_map):
             name = name_map[cp]
             words = name.lower().split()
-            aliases = aliases_map.get(cp, set()) - set(words)
             end = '\n'
-            if aliases:
+            if aliases := aliases_map.get(cp, set()) - set(words):
                 end = '\t' + ' '.join(sorted(aliases)) + end
             print(cp, *words, end=end, file=f)
 
@@ -541,7 +535,7 @@ def gen_rowcolumn_diacritics() -> None:
     # codes of all row/column diacritics
     codes = []
     with open("./rowcolumn-diacritics.txt") as file:
-        for line in file.readlines():
+        for line in file:
             if line.startswith('#'):
                 continue
             code = int(line.split(";")[0], 16)

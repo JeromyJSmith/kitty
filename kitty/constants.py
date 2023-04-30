@@ -45,11 +45,9 @@ if getattr(sys, 'frozen', False):
 
         if is_running_from_develop:
             q = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-            try:
+            with suppress(OSError):
                 if os.path.isdir(q):
                     return q
-            except OSError:
-                pass
         ans = os.path.dirname(extensions_dir)
         if is_macos:
             ans = os.path.dirname(os.path.dirname(ans))
@@ -199,9 +197,7 @@ def detect_if_wayland_ok() -> bool:
     if 'KITTY_DISABLE_WAYLAND' in os.environ:
         return False
     wayland = glfw_path('wayland')
-    if not os.path.exists(wayland):
-        return False
-    return True
+    return bool(os.path.exists(wayland))
 
 
 def is_wayland(opts: Optional['Options'] = None) -> bool:
@@ -223,7 +219,7 @@ supports_primary_selection = not is_macos
 def running_in_kitty(set_val: Optional[bool] = None) -> bool:
     if set_val is not None:
         setattr(running_in_kitty, 'ans', set_val)
-    return bool(getattr(running_in_kitty, 'ans', False))
+    return getattr(running_in_kitty, 'ans', False)
 
 
 def list_kitty_resources(package: str = 'kitty') -> Iterator[str]:
@@ -283,9 +279,7 @@ def local_docs() -> str:
     subdir = os.path.join('doc', 'kitty', 'html')
     linux_ans = os.path.join(base, 'share', subdir)
     if getattr(sys, 'frozen', False):
-        if is_macos:
-            return os.path.join(d(d(d(extensions_dir))), subdir)
-        return linux_ans
+        return os.path.join(d(d(d(extensions_dir))), subdir) if is_macos else linux_ans
     if os.path.isdir(linux_ans):
         return linux_ans
     if from_source:

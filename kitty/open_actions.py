@@ -117,11 +117,7 @@ def url_matches_criterion(purl: 'ParseResult', url: str, unquoted_path: str, mc:
 
     if mc.type == 'protocol':
         protocol = (purl.scheme or 'file').lower()
-        for key in mc.value.split(','):
-            if key.strip() == protocol:
-                return True
-        return False
-
+        return any(key.strip() == protocol for key in mc.value.split(','))
     if mc.type == 'fragment_matches':
         import re
         try:
@@ -186,9 +182,7 @@ def actions_for_url_from_list(url: str, actions: Iterable[OpenAction]) -> Iterat
             x = x.decode('utf-8')
         if isinstance(x, str):
             ans = expandvars(x, env, fallback_to_os_env=False)
-            if as_bytes:
-                return ans.encode('utf-8')
-            return ans
+            return ans.encode('utf-8') if as_bytes else ans
         return x
 
     for action in actions:

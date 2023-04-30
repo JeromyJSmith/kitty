@@ -96,9 +96,7 @@ def ask_action(opts: RemoteFileCLIOptions) -> str:
 def hostname_matches(from_hyperlink: str, actual: str) -> bool:
     if from_hyperlink == actual:
         return True
-    if from_hyperlink.partition('.')[0] == actual.partition('.')[0]:
-        return True
-    return False
+    return from_hyperlink.partition('.')[0] == actual.partition('.')[0]
 
 
 class ControlMaster:
@@ -205,7 +203,7 @@ class ControlMaster:
         with open(self.dest, 'wb') as f:
             cp = subprocess.run(cmdline, stdout=f, stderr=subprocess.PIPE, stdin=subprocess.DEVNULL)
             if cp.returncode != 0:
-                self.last_error_log = f'The command: {shlex.join(cmdline)} failed\n' + cp.stderr.decode()
+                self.last_error_log = f'The command: {shlex.join(cmdline)} failed\n{cp.stderr.decode()}'
                 return False
         return True
 
@@ -215,13 +213,14 @@ class ControlMaster:
         if not suppress_output:
             print(shlex.join(cmd))
         with open(self.dest, 'rb') as f:
-            if suppress_output:
-                cp = subprocess.run(cmd, stdin=f, capture_output=True)
-                if cp.returncode == 0:
-                    return True
-                self.last_error_log = f'The command: {shlex.join(cmd)} failed\n' + cp.stdout.decode()
-            else:
+            if not suppress_output:
                 return subprocess.run(cmd, stdin=f).returncode == 0
+            cp = subprocess.run(cmd, stdin=f, capture_output=True)
+            if cp.returncode == 0:
+                return True
+            self.last_error_log = (
+                f'The command: {shlex.join(cmd)} failed\n{cp.stdout.decode()}'
+            )
         return False
 
 
@@ -303,9 +302,8 @@ def save_as(conn_data: SSHConnectionData, remote_path: str, cli_opts: RemoteFile
     if os.path.dirname(dest):
         os.makedirs(os.path.dirname(dest), exist_ok=True)
     with ControlMaster(conn_data, remote_path, cli_opts, dest=dest) as master:
-        if master.check_hostname_matches():
-            if not master.download():
-                master.show_error('Failed to copy file from remote machine')
+        if master.check_hostname_matches() and not master.download():
+            master.show_error('Failed to copy file from remote machine')
 
 
 def handle_action(action: str, cli_opts: RemoteFileCLIOptions) -> Result:

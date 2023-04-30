@@ -12,18 +12,13 @@ KeymapType = Dict[str, Tuple[str, Union[FrozenSet[str], str]]]
 def resolve_keys(keymap: KeymapType) -> DefaultDict[str, List[str]]:
     ans: DefaultDict[str, List[str]] = defaultdict(list)
     for ch, (attr, atype) in keymap.items():
-        if isinstance(atype, str) and atype in ('int', 'uint'):
-            q = atype
-        else:
-            q = 'flag'
+        q = atype if isinstance(atype, str) and atype in ('int', 'uint') else 'flag'
         ans[q].append(ch)
     return ans
 
 
 def enum(keymap: KeymapType) -> str:
-    lines = []
-    for ch, (attr, atype) in keymap.items():
-        lines.append(f"{attr}='{ch}'")
+    lines = [f"{attr}='{ch}'" for ch, (attr, atype) in keymap.items()]
     return '''
     enum KEYS {{
         {}

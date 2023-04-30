@@ -49,7 +49,7 @@ def ssh_options() -> Dict[str, str]:
             opt, desc = q.split(' ', 1)
             ans[opt[1:]] = desc
         else:
-            ans.update(dict.fromkeys(q[1:], ''))
+            ans |= dict.fromkeys(q[1:], '')
     return ans
 
 
@@ -166,10 +166,7 @@ def get_ssh_cli() -> Tuple[Set[str], Set[str]]:
 
 
 def is_extra_arg(arg: str, extra_args: Tuple[str, ...]) -> str:
-    for x in extra_args:
-        if arg == x or arg.startswith(f'{x}='):
-            return x
-    return ''
+    return next((x for x in extra_args if arg == x or arg.startswith(f'{x}=')), '')
 
 
 passthrough_args = {f'-{x}' for x in 'NnfGT'}
@@ -198,8 +195,7 @@ def set_server_args_in_cmdline(
                     ans.insert(i, '-t')
                 break
             if extra_args:
-                matching_ex = is_extra_arg(argument, extra_args)
-                if matching_ex:
+                if matching_ex := is_extra_arg(argument, extra_args):
                     if '=' in argument:
                         exval = argument.partition('=')[-1]
                         found_extra_args.extend((matching_ex, exval))
@@ -216,8 +212,7 @@ def set_server_args_in_cmdline(
                     continue
                 if arg in other_ssh_args:
                     ssh_args.append(arg)
-                    rest = all_args[i+1:]
-                    if rest:
+                    if rest := all_args[i + 1 :]:
                         ssh_args.append(rest)
                     else:
                         expecting_option_val = True
@@ -276,8 +271,7 @@ def get_connection_data(args: List[str], cwd: str = '', extra_args: Tuple[str, .
                     identity_file = arg[2:]
                     continue
             if arg.startswith('--') and extra_args:
-                matching_ex = is_extra_arg(arg, extra_args)
-                if matching_ex:
+                if matching_ex := is_extra_arg(arg, extra_args):
                     if '=' in arg:
                         exval = arg.partition('=')[-1]
                         found_extra_args.append((matching_ex, exval))

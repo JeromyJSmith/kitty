@@ -219,8 +219,11 @@ def files_for_send(cli_opts: TransferCLIOptions, args: List[str]) -> Tuple[File,
             else:
                 fh = st.st_dev, st.st_ino
                 if fh in groups:
-                    g = tuple(x for x in groups[fh] if os.path.samestat(st, x.stat_result))
-                    if g:
+                    if g := tuple(
+                        x
+                        for x in groups[fh]
+                        if os.path.samestat(st, x.stat_result)
+                    ):
                         t = g[0]
                         prefix = 'fid_abs' if is_abs else 'fid'
                         f.symbolic_link_target = f'{prefix}:{t.file_id}'
@@ -560,9 +563,8 @@ class Send(Handler):
         for chunk in self.manager.next_chunks():
             self.send_payload(chunk)
             found_chunk = True
-        if not found_chunk:
-            if self.manager.all_acknowledged:
-                self.transfer_finished()
+        if not found_chunk and self.manager.all_acknowledged:
+            self.transfer_finished()
 
     def transfer_finished(self) -> None:
         self.send_payload(FileTransmissionCommand(action=Action.finish).serialize())
@@ -666,7 +668,7 @@ class Send(Handler):
     def draw_progress(self) -> None:
         with without_line_wrap(self.write):
             for df in self.done_files:
-                sc = styled('✔', fg='green') if not df.err_msg else styled('✘', fg='red')
+                sc = styled('✘', fg='red') if df.err_msg else styled('✔', fg='green')
                 if df.file_type is FileType.regular:
                     self.draw_progress_for_current_file(df, spinner_char=sc, is_complete=True)
                 else:
@@ -735,13 +737,11 @@ def send_main(cli_opts: TransferCLIOptions, args: List[str]) -> None:
     loop = Loop()
     handler = Send(cli_opts, files)
     loop.loop(handler)
-    p = handler.manager.progress
-    if handler.manager.has_rsync and p.total_transferred + p.signature_bytes:
-        tsf = 0
-        for f in files:
-            if f.ttype is TransmissionType.rsync:
-                tsf += f.file_size
-        if tsf:
+    if tsf := sum(
+        f.file_size for f in files if f.ttype is TransmissionType.rsync
+    ):
+        p = handler.manager.progress
+        if handler.manager.has_rsync and p.total_transferred + p.signature_bytes:
             print_rsync_stats(tsf, p.total_transferred, p.signature_bytes)
     if handler.failed_files:
         print(f'Transfer of {len(handler.failed_files)} out of {len(handler.manager.files)} files failed')

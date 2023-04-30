@@ -325,21 +325,20 @@ class Dircolors:
         """ Output the database in the format used by the LS_COLORS environment variable. """
 
         def gen_pairs() -> Generator[Tuple[str, str], None, None]:
-            for pair in self.codes.items():
-                yield pair
+            yield from self.codes.items()
             for pair in self.extensions.items():
                 # change .xyz to *.xyz
-                yield '*' + pair[0], pair[1]
+                yield (f'*{pair[0]}', pair[1])
 
         return ':'.join('{}={}'.format(*pair) for pair in gen_pairs())
 
     def _format_code(self, text: str, code: str) -> str:
         val = self.codes.get(code)
-        return '\033[{}m{}\033[{}m'.format(val, text, self.codes.get('rs', '0')) if val else text
+        return f"\033[{val}m{text}\033[{self.codes.get('rs', '0')}m" if val else text
 
     def _format_ext(self, text: str, ext: str) -> str:
         val = self.extensions.get(ext, '0')
-        return '\033[{}m{}\033[{}m'.format(val, text, self.codes.get('rs', '0')) if val else text
+        return f"\033[{val}m{text}\033[{self.codes.get('rs', '0')}m" if val else text
 
     def format_mode(self, text: str, sr: os.stat_result) -> str:
         mode = sr.st_mode
@@ -364,9 +363,7 @@ class Dircolors:
         if mode & (stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH):
             return self._format_code(text, 'ex')
 
-        # regular file, format according to its extension
-        ext = os.path.splitext(text)[1]
-        if ext:
+        if ext := os.path.splitext(text)[1]:
             return self._format_ext(text, ext)
         return text
 

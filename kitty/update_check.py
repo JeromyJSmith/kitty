@@ -15,7 +15,7 @@ from .notify import notify
 from .utils import log_error, open_url
 
 CHANGELOG_URL = website_url('changelog')
-RELEASED_VERSION_URL = website_url() + 'current-version.txt'
+RELEASED_VERSION_URL = f'{website_url()}current-version.txt'
 CHECK_INTERVAL = 24 * 60 * 60.
 
 
@@ -38,9 +38,9 @@ def version_notification_log() -> str:
 
 def notify_new_version(release_version: Version) -> None:
     notify(
-            'kitty update available!',
-            'kitty version {} released'.format('.'.join(map(str, release_version))),
-            identifier='new-version',
+        'kitty update available!',
+        f"kitty version {'.'.join(map(str, release_version))} released",
+        identifier='new-version',
     )
 
 
@@ -49,7 +49,7 @@ def get_released_version() -> str:
         raw = urlopen(RELEASED_VERSION_URL).read().decode('utf-8').strip()
     except Exception:
         raw = '0.0.0'
-    return str(raw)
+    return raw
 
 
 def parse_line(line: str) -> Notification:
@@ -88,10 +88,9 @@ def save_notification(version: Version) -> None:
     lines = []
     for version in sorted(notified_versions):
         n = notified_versions[version]
-        lines.append('{},{},{}'.format(
-            '.'.join(map(str, n.version)),
-            n.time_of_last_notification,
-            n.notification_count))
+        lines.append(
+            f"{'.'.join(map(str, n.version))},{n.time_of_last_notification},{n.notification_count}"
+        )
     atomic_save('\n'.join(lines).encode('utf-8'), version_notification_log())
 
 

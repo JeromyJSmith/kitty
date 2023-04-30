@@ -69,9 +69,7 @@ def serialize_go_dict(x: Union[Dict[str, int], Dict[int, str], Dict[int, int], D
     ans = []
 
     def s(x: Union[int, str]) -> str:
-        if isinstance(x, int):
-            return str(x)
-        return f'"{serialize_as_go_string(x)}"'
+        return str(x) if isinstance(x, int) else f'"{serialize_as_go_string(x)}"'
 
     for k, v in x.items():
         ans.append(f'{s(k)}: {s(v)}')
@@ -95,8 +93,7 @@ def kitten_cli_docs(kitten: str) -> Any:
 
 @lru_cache
 def go_options_for_kitten(kitten: str) -> Tuple[Sequence[GoOption], Optional[CompletionSpec]]:
-    kcd = kitten_cli_docs(kitten)
-    if kcd:
+    if kcd := kitten_cli_docs(kitten):
         ospec = kcd['options']
         return (tuple(go_options_for_seq(parse_option_spec(ospec())[0])), kcd.get('args_completion'))
     return (), None
@@ -105,10 +102,9 @@ def go_options_for_kitten(kitten: str) -> Tuple[Sequence[GoOption], Optional[Com
 def generate_kittens_completion() -> None:
     from kittens.runner import all_kitten_names, get_kitten_wrapper_of
     for kitten in sorted(all_kitten_names()):
-        kn = 'kitten_' + kitten
+        kn = f'kitten_{kitten}'
         print(f'{kn} := plus_kitten.AddSubCommand(&cli.Command{{Name:"{kitten}", Group: "Kittens"}})')
-        wof = get_kitten_wrapper_of(kitten)
-        if wof:
+        if wof := get_kitten_wrapper_of(kitten):
             print(f'{kn}.ArgCompleter = cli.CompletionForWrapper("{serialize_as_go_string(wof)}")')
             print(f'{kn}.OnlyArgsAllowed = true')
             continue
@@ -117,7 +113,7 @@ def generate_kittens_completion() -> None:
             for opt in gopts:
                 print(opt.as_option(kn))
             if ac is not None:
-                print(''.join(ac.as_go_code(kn + '.ArgCompleter', ' = ')))
+                print(''.join(ac.as_go_code(f'{kn}.ArgCompleter', ' = ')))
         else:
             print(f'{kn}.HelpText = ""')
 
@@ -125,11 +121,12 @@ def generate_kittens_completion() -> None:
 @lru_cache
 def clone_safe_launch_opts() -> Sequence[GoOption]:
     from kitty.launch import clone_safe_opts, options_spec
-    ans = []
     allowed = clone_safe_opts()
-    for o in go_options_for_seq(parse_option_spec(options_spec())[0]):
-        if o.obj_dict['name'] in allowed:
-            ans.append(o)
+    ans = [
+        o
+        for o in go_options_for_seq(parse_option_spec(options_spec())[0])
+        if o.obj_dict['name'] in allowed
+    ]
     return tuple(ans)
 
 
@@ -209,8 +206,7 @@ json_field_types: Dict[str, str] = {
 
 
 def go_field_type(json_field_type: str) -> str:
-    q = json_field_types.get(json_field_type)
-    if q:
+    if q := json_field_types.get(json_field_type):
         return q
     if json_field_type.startswith('choices.'):
         return 'string'
@@ -233,7 +229,10 @@ class JSONField:
         self.struct_field_name = self.field[0].upper() + self.field[1:]
 
     def go_declaration(self) -> str:
-        return self.struct_field_name + ' ' + go_field_type(self.field_type) + f'`json:"{self.field},omitempty"`'
+        return (
+            f'{self.struct_field_name} {go_field_type(self.field_type)}'
+            + f'`json:"{self.field},omitempty"`'
+        )
 
 
 def go_code_for_remote_command(name: str, cmd: RemoteCommand, template: str) -> str:
@@ -273,17 +272,15 @@ def go_code_for_remote_command(name: str, cmd: RemoteCommand, template: str) -> 
         if oq in option_map:
             o = option_map[oq]
             used_options.add(oq)
-            if field.field_type == 'str':
-                jc.append(f'payload.{field.struct_field_name} = escaped_string(options_{name}.{o.go_var_name})')
+            if field.field_type == 'dict.str':
+                jc.append(f'payload.{field.struct_field_name} = escape_dict_of_strings(options_{name}.{o.go_var_name})')
             elif field.field_type == 'list.str':
                 jc.append(f'payload.{field.struct_field_name} = escape_list_of_strings(options_{name}.{o.go_var_name})')
-            elif field.field_type == 'dict.str':
-                jc.append(f'payload.{field.struct_field_name} = escape_dict_of_strings(options_{name}.{o.go_var_name})')
+            elif field.field_type == 'str':
+                jc.append(f'payload.{field.struct_field_name} = escaped_string(options_{name}.{o.go_var_name})')
             else:
                 jc.append(f'payload.{field.struct_field_name} = options_{name}.{o.go_var_name}')
-        elif field.field in handled_fields:
-            pass
-        else:
+        elif field.field not in handled_fields:
             unhandled[field.field] = field
     for x in tuple(unhandled):
         if x == 'match_window' and 'Match' in option_map and 'Match' not in used_options:
@@ -297,29 +294,37 @@ def go_code_for_remote_command(name: str, cmd: RemoteCommand, template: str) -> 
             del unhandled[x]
     if unhandled:
         raise SystemExit(f'Cant map fields: {", ".join(unhandled)} for cmd: {name}')
-    if name != 'send_text':
-        unused_options = set(option_map) - used_options - {'NoResponse', 'ResponseTimeout'}
-        if unused_options:
+    if (
+        unused_options := set(option_map)
+        - used_options
+        - {'NoResponse', 'ResponseTimeout'}
+    ):
+        if name != 'send_text':
             raise SystemExit(f'Unused options: {", ".join(unused_options)} for command: {name}')
 
     argspec = cmd.args.spec
     if argspec:
-        argspec = ' ' + argspec
-    ans = replace(
+        argspec = f' {argspec}'
+    return replace(
         template,
-        CMD_NAME=name, __FILE__=__file__, CLI_NAME=name.replace('_', '-'),
+        CMD_NAME=name,
+        __FILE__=__file__,
+        CLI_NAME=name.replace('_', '-'),
         SHORT_DESC=serialize_as_go_string(cmd.short_desc),
         LONG_DESC=serialize_as_go_string(cmd.desc.strip()),
         IS_ASYNC='true' if cmd.is_asynchronous else 'false',
-        NO_RESPONSE_BASE=NO_RESPONSE_BASE, ADD_FLAGS_CODE='\n'.join(af),
+        NO_RESPONSE_BASE=NO_RESPONSE_BASE,
+        ADD_FLAGS_CODE='\n'.join(af),
         WAIT_TIMEOUT=str(cmd.response_timeout),
         OPTIONS_DECLARATION_CODE='\n'.join(od),
         JSON_DECLARATION_CODE='\n'.join(jd),
-        JSON_INIT_CODE='\n'.join(jc), ARGSPEC=argspec,
-        STRING_RESPONSE_IS_ERROR='true' if cmd.string_return_is_error else 'false',
+        JSON_INIT_CODE='\n'.join(jc),
+        ARGSPEC=argspec,
+        STRING_RESPONSE_IS_ERROR='true'
+        if cmd.string_return_is_error
+        else 'false',
         STREAM_WANTED='true' if cmd.reads_streaming_data else 'false',
     )
-    return ans
 # }}}
 
 
@@ -367,8 +372,7 @@ def kitten_clis() -> None:
         defn = get_kitten_conf_docs(kitten)
         if defn is not None:
             generate_conf_parser(kitten, defn)
-        ecp = get_kitten_extra_cli_parsers(kitten)
-        if ecp:
+        if ecp := get_kitten_extra_cli_parsers(kitten):
             for name, spec in ecp.items():
                 with replace_if_needed(f'kittens/{kitten}/{name}_cli_generated.go'):
                     print(f'package {kitten}')
@@ -464,8 +468,7 @@ def load_ref_map() -> Dict[str, Dict[str, str]]:
     with open('kitty/docs_ref_map_generated.h') as f:
         raw = f.read()
     raw = raw.split('{', 1)[1].split('}', 1)[0]
-    data = json.loads(bytes(bytearray(json.loads(f'[{raw}]'))))
-    return data  # type: ignore
+    return json.loads(bytes(bytearray(json.loads(f'[{raw}]'))))
 
 
 def generate_constants() -> str:
@@ -477,7 +480,7 @@ def generate_constants() -> str:
     with open('kitty/data-types.h') as dt:
         m = re.search(r'^#define IMAGE_PLACEHOLDER_CHAR (\S+)', dt.read(), flags=re.M)
         assert m is not None
-        placeholder_char = int(m.group(1), 16)
+        placeholder_char = int(m[1], 16)
     dp = ", ".join(map(lambda x: f'"{serialize_as_go_string(x)}"', kc.default_pager_for_help))
     url_prefixes = ','.join(f'"{x}"' for x in Options.url_prefixes)
     return f'''\
@@ -530,11 +533,11 @@ def replace_if_needed(path: str, show_diff: bool = False) -> Iterator[io.StringI
     with suppress(FileNotFoundError), open(path, 'r') as f:
         orig = f.read()
     new = buf.getvalue()
-    new = f'// Code generated by {os.path.basename(__file__)}; DO NOT EDIT.\n\n' + new
+    new = f'// Code generated by {os.path.basename(__file__)}; DO NOT EDIT.\n\n{new}'
     if orig != new:
         changed.append(path)
         if show_diff:
-            with open(path + '.new', 'w') as f:
+            with open(f'{path}.new', 'w') as f:
                 f.write(new)
                 subprocess.run(['diff', '-Naurp', path, f.name], stdout=open('/dev/tty', 'w'))
                 os.remove(f.name)
@@ -595,15 +598,14 @@ def update_completion() -> None:
 def define_enum(package_name: str, type_name: str, items: str, underlying_type: str = 'uint') -> str:
     actions = []
     for x in items.splitlines():
-        x = x.strip()
-        if x:
+        if x := x.strip():
             actions.append(x)
     ans = [f'package {package_name}', 'import "strconv"', f'type {type_name} {underlying_type}', 'const (']
     stringer = [f'func (ac {type_name}) String() string ''{', 'switch(ac) {']
     for i, ac in enumerate(actions):
         stringer.append(f'case {ac}: return "{ac}"')
         if i == 0:
-            ac = ac + f' {type_name} = iota'
+            ac = f'{ac} {type_name} = iota'
         ans.append(ac)
     ans.append(')')
     stringer.append('}\nreturn strconv.Itoa(int(ac)) }')
@@ -675,20 +677,22 @@ def generate_mimetypes() -> str:
         mimetypes.init()
     ans = ['package utils', 'import "sync"', 'var only_once sync.Once', 'var builtin_types_map map[string]string',
            'func set_builtins() {', 'builtin_types_map = map[string]string{',]
-    for k, v in mimetypes.types_map.items():
-        ans.append(f'  "{serialize_as_go_string(k)}": "{serialize_as_go_string(v)}",')
+    ans.extend(
+        f'  "{serialize_as_go_string(k)}": "{serialize_as_go_string(v)}",'
+        for k, v in mimetypes.types_map.items()
+    )
     ans.append('}}')
     return '\n'.join(ans)
 
 
 def generate_textual_mimetypes() -> str:
     ans = ['package utils', 'var KnownTextualMimes = map[string]bool{',]
-    for k in text_mimes:
-        ans.append(f'  "{serialize_as_go_string(k)}": true,')
-    ans.append('}')
-    ans.append('var KnownExtensions = map[string]string{')
-    for k, v in known_extensions.items():
-        ans.append(f'  ".{serialize_as_go_string(k)}": "{serialize_as_go_string(v)}",')
+    ans.extend(f'  "{serialize_as_go_string(k)}": true,' for k in text_mimes)
+    ans.extend(('}', 'var KnownExtensions = map[string]string{'))
+    ans.extend(
+        f'  ".{serialize_as_go_string(k)}": "{serialize_as_go_string(v)}",'
+        for k, v in known_extensions.items()
+    )
     ans.append('}')
     return '\n'.join(ans)
 
@@ -703,8 +707,7 @@ def generate_unicode_names(src: TextIO, dest: BinaryIO) -> None:
     gob = io.BytesIO()
     gob.write(struct.pack('<II', num_names, num_of_words))
     for line in src:
-        line = line.strip()
-        if line:
+        if line := line.strip():
             a, aliases = line.partition('\t')[::2]
             cp, name = a.partition(' ')[::2]
             ename = name.encode()

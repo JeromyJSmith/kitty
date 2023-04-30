@@ -164,9 +164,7 @@ class ClipboardControl(Query):
 def get_result(name: str) -> Optional[str]:
     from kitty.fast_data_types import get_options
     q = all_queries.get(name)
-    if q is None:
-        return None
-    return q.get_result(get_options())
+    return None if q is None else q.get_result(get_options())
 
 
 def do_queries(queries: Iterable[str], cli_opts: QueryTerminalCLIOptions) -> Dict[str, str]:
@@ -242,10 +240,8 @@ def main(args: List[str] = sys.argv) -> None:
     queries: List[str] = list(items_)
     if 'all' in queries or not queries:
         queries = sorted(all_queries)
-    else:
-        extra = frozenset(queries) - frozenset(all_queries)
-        if extra:
-            raise SystemExit(f'Unknown queries: {", ".join(extra)}')
+    elif extra := frozenset(queries) - frozenset(all_queries):
+        raise SystemExit(f'Unknown queries: {", ".join(extra)}')
 
     for key, val in do_queries(queries, cli_opts).items():
         print(f'{key}:', val)

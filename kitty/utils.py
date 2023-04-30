@@ -80,9 +80,7 @@ def expandvars(val: str, env: Mapping[str, str] = {}, fallback_to_os_env: bool =
 @lru_cache(maxsize=2)
 def sgr_sanitizer_pat(for_splitting: bool = False) -> 're.Pattern[str]':
     pat = '\033\\[.*?m'
-    if for_splitting:
-        return re.compile(f'({pat})')
-    return re.compile(pat)
+    return re.compile(f'({pat})') if for_splitting else re.compile(pat)
 
 
 @run_once
@@ -254,10 +252,9 @@ def command_for_open(program: Union[str, List[str]] = 'default') -> List[str]:
         from .conf.utils import to_cmdline
         program = to_cmdline(program)
     if program == ['default']:
-        cmd = ['open'] if is_macos else ['xdg-open']
+        return ['open'] if is_macos else ['xdg-open']
     else:
-        cmd = program
-    return cmd
+        return program
 
 
 def open_cmd(cmd: Union[Iterable[str], List[str]], arg: Union[None, Iterable[str], str] = None,
@@ -272,7 +269,7 @@ def open_cmd(cmd: Union[Iterable[str], List[str]], arg: Union[None, Iterable[str
     env: Optional[Dict[str, str]] = None
     if extra_env:
         env = os.environ.copy()
-        env.update(extra_env)
+        env |= extra_env
     return subprocess.Popen(
         tuple(cmd), stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, cwd=cwd or None,
         preexec_fn=clear_handled_signals, env=env)
@@ -283,10 +280,8 @@ def open_url(url: str, program: Union[str, List[str]] = 'default', cwd: Optional
 
 
 def detach(fork: bool = True, setsid: bool = True, redirect: bool = True) -> None:
-    if fork:
-        # Detach from the controlling process.
-        if os.fork() != 0:
-            raise SystemExit(0)
+    if fork and os.fork() != 0:
+        raise SystemExit(0)
     if setsid:
         os.setsid()
     if redirect:
@@ -302,9 +297,11 @@ def init_startup_notification_x11(window_handle: int, startup_id: Optional[str] 
         return None
     from .fast_data_types import x11_display
     display = x11_display()
-    if not display:
-        return None
-    return init_x11_startup_notification(display, window_handle, sid)
+    return (
+        init_x11_startup_notification(display, window_handle, sid)
+        if display
+        else None
+    )
 
 
 def end_startup_notification_x11(ctx: 'StartupCtx') -> None:
@@ -442,11 +439,10 @@ def single_instance_unix(name: str) -> bool:
         try:
             s.bind(socket_path)
         except OSError as err:
-            if err.errno in (errno.EADDRINUSE, errno.EEXIST):
-                os.unlink(socket_path)
-                s.bind(socket_path)
-            else:
+            if err.errno not in (errno.EADDRINUSE, errno.EEXIST):
                 raise
+            os.unlink(socket_path)
+            s.bind(socket_path)
         single_instance.socket = s  # prevent garbage collection from closing the socket
         atexit.register(remove_socket_file, s, socket_path)
         s.listen()
@@ -646,8 +642,8 @@ def get_editor_from_env(env: Mapping[str, str]) -> Optional[str]:
         editor = env.get(var)
         if editor:
             editor = resolve_editor_cmd(editor, env)
-            if editor:
-                return editor
+        if editor:
+            return editor
     return None
 
 
@@ -739,11 +735,9 @@ def func_name(f: Any) -> str:
 def resolved_shell(opts: Optional[Options] = None) -> List[str]:
     q: str = getattr(opts, 'shell', '.')
     if q == '.':
-        ans = [shell_path]
-    else:
-        import shlex
-        ans = shlex.split(q)
-    return ans
+        return [shell_path]
+    import shlex
+    return shlex.split(q)
 
 
 @run_once
@@ -758,10 +752,15 @@ def system_paths_on_macos() -> Tuple[str, ...]:
         with f:
             for line in f:
                 line = line.strip()
-                if line and not line.startswith('#') and line not in seen:
-                    if os.path.isdir(line):
-                        seen.add(line)
-                        entries.append(line)
+                if (
+                    line
+                    and not line.startswith('#')
+                    and line not in seen
+                    and os.path.isdir(line)
+                ):
+                    seen.add(line)
+                    entries.append(line)
+
     try:
         files = os.listdir('/etc/paths.d')
     except FileNotFoundError:
@@ -787,22 +786,20 @@ def which(name: str, only_system: bool = False) -> Optional[str]:
     append_paths = []
     if opts and opts.exe_search_path:
         for x in opts.exe_search_path:
-            x = x.strip()
-            if x:
+            if x := x.strip():
                 if x[0] == '-':
                     tried_paths.add(os.path.expanduser(x[1:]))
                 elif x[0] == '+':
                     append_paths.append(os.path.expanduser(x[1:]))
                 else:
                     paths.append(os.path.expanduser(x))
-    ep = os.environ.get('PATH')
-    if ep:
+    if ep := os.environ.get('PATH'):
         paths.extend(ep.split(os.pathsep))
-    paths.append(os.path.expanduser('~/.local/bin'))
-    paths.append(os.path.expanduser('~/bin'))
+    paths.extend((os.path.expanduser('~/.local/bin'), os.path.expanduser('~/bin')))
     paths.extend(append_paths)
-    ans = shutil.which(name, path=os.pathsep.join(x for x in paths if x not in tried_paths))
-    if ans:
+    if ans := shutil.which(
+        name, path=os.pathsep.join(x for x in paths if x not in tried_paths)
+    ):
         return ans
     # In case PATH is messed up try a default set of paths
     if is_macos:
@@ -810,21 +807,17 @@ def which(name: str, only_system: bool = False) -> Optional[str]:
     else:
         system_paths = ('/usr/local/bin', '/opt/bin', '/usr/bin', '/bin', '/usr/sbin', '/sbin')
     tried_paths |= set(paths)
-    system_paths = tuple(x for x in system_paths if x not in tried_paths)
-    if system_paths:
-        ans = shutil.which(name, path=os.pathsep.join(system_paths))
-        if ans:
+    if system_paths := tuple(x for x in system_paths if x not in tried_paths):
+        if ans := shutil.which(name, path=os.pathsep.join(system_paths)):
             return ans
         tried_paths |= set(system_paths)
     if only_system or opts is None:
         return None
     shell_env = read_shell_environment(opts)
     for xenv in (shell_env, opts.env):
-        q = xenv.get('PATH')
-        if q:
+        if q := xenv.get('PATH'):
             paths = [x for x in xenv['PATH'].split(os.pathsep) if x not in tried_paths]
-            ans = shutil.which(name, path=os.pathsep.join(paths))
-            if ans:
+            if ans := shutil.which(name, path=os.pathsep.join(paths)):
                 return ans
             tried_paths |= set(paths)
     return None
@@ -1041,7 +1034,7 @@ def less_version(less_exe: str = 'less') -> int:
     m = re.match(r'less (\d+)', o)
     if m is None:
         raise ValueError(f'Invalid version string for less: {o}')
-    return int(m.group(1))
+    return int(m[1])
 
 
 def is_pid_alive(pid: int) -> bool:
@@ -1072,10 +1065,7 @@ def docs_url(which: str = '', local_docs_root: Optional[str] = '') -> str:
 
     from .conf.types import resolve_ref
     from .constants import local_docs, website_url
-    if local_docs_root is None:
-        ld = ''
-    else:
-        ld = local_docs_root or local_docs()
+    ld = '' if local_docs_root is None else local_docs_root or local_docs()
     base, frag = which.partition('#')[::2]
     base = base.strip('/')
     if frag.startswith('ref='):
@@ -1087,11 +1077,11 @@ def docs_url(which: str = '', local_docs_root: Optional[str] = '') -> str:
         base = base.strip('/')
     if ld:
         base = base or 'index'
-        url = f'file://{ld}/' + quote(base) + '.html'
+        url = f'file://{ld}/{quote(base)}.html'
     else:
         url = website_url(base)
     if frag:
-        url += '#' + frag
+        url += f'#{frag}'
     return url
 
 
@@ -1116,7 +1106,7 @@ def sanitize_url_for_dispay_to_user(url: str) -> str:
             purl = purl._replace(path=unquote(purl.path))
         url = urlunparse(purl)
     except Exception:
-        url = 'Unparseable URL: ' + url
+        url = f'Unparseable URL: {url}'
     return url
 
 

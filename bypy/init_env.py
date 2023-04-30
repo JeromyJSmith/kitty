@@ -22,20 +22,20 @@ def read_src_file(name):
 
 
 def initialize_constants():
-    kitty_constants = {}
     src = read_src_file('constants.py')
     nv = re.search(r'Version\((\d+), (\d+), (\d+)\)', src)
-    kitty_constants['version'] = f'{nv.group(1)}.{nv.group(2)}.{nv.group(3)}'
-    kitty_constants['appname'] = re.search(
+    return {
+        'version': f'{nv[1]}.{nv[2]}.{nv[3]}',
+        'appname': re.search(
             r'appname: str\s+=\s+(u{0,1})[\'"]([^\'"]+)[\'"]', src
-    ).group(2)
-    kitty_constants['cacerts_url'] = 'https://curl.haxx.se/ca/cacert.pem'
-    return kitty_constants
+        )[2],
+        'cacerts_url': 'https://curl.haxx.se/ca/cacert.pem',
+    }
 
 
 def run(*args, **extra_env):
     env = os.environ.copy()
-    env.update(worker_env)
+    env |= worker_env
     env.update(extra_env)
     env['SW'] = PREFIX
     env['LD_LIBRARY_PATH'] = LIBDIR
@@ -67,8 +67,7 @@ def run_tests(kitty_exe):
             'KITTY_CACHE_DIRECTORY': os.path.join(tdir, 'cache')
         }
         [os.mkdir(x) for x in uenv.values()]
-        env = os.environ.copy()
-        env.update(uenv)
+        env = os.environ | uenv
         cmd = [kitty_exe, '+runpy', 'from kitty_tests.main import run_tests; run_tests(report_env=True)']
         print(*map(shlex.quote, cmd), flush=True)
         if subprocess.call(cmd, env=env, cwd=build_frozen_launcher.writeable_src_dir) != 0:

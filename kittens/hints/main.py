@@ -263,7 +263,7 @@ def linenum_handle_result(args: List[str], data: Dict[str, Any], target_window_i
     if action == 'self':
         if w is not None:
             def is_copy_action(s: str) -> bool:
-                return s in ('-', '@', '*') or s.startswith('@')
+                return s in {'-', '@', '*'} or s.startswith('@')
 
             programs = list(filter(is_copy_action, data['programs'] or ()))
             # keep for backward compatibility, previously option `--program` does not need to be specified to perform copy actions
@@ -359,7 +359,7 @@ def handle_result(args: List[str], data: Dict[str, Any], target_window_id: int, 
                 launch_args = []
                 if isinstance(program, str) and program.startswith('launch '):
                     launch_args = to_cmdline(program)
-                    launch_args.insert(1, '--cwd=' + cwd)
+                    launch_args.insert(1, f'--cwd={cwd}')
                 for m, groupdict in zip(matches, groupdicts):
                     if groupdict:
                         m = []
@@ -373,9 +373,7 @@ def handle_result(args: List[str], data: Dict[str, Any], target_window_id: int, 
 
 
 if __name__ == '__main__':
-    # Run with kitty +kitten hints
-    ans = main(sys.argv)
-    if ans:
+    if ans := main(sys.argv):
         print(ans)
 elif __name__ == '__doc__':
     cd = sys.cli_docs  # type: ignore

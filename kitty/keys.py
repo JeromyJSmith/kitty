@@ -11,8 +11,7 @@ mod_mask = GLFW_MOD_ALT | GLFW_MOD_CONTROL | GLFW_MOD_SHIFT | GLFW_MOD_SUPER | G
 
 
 def keyboard_mode_name(screen: ScreenType) -> str:
-    flags = screen.current_key_encoding_flags()
-    if flags:
+    if flags := screen.current_key_encoding_flags():
         return 'kitty'
     return 'application' if screen.cursor_key_mode else 'normal'
 
@@ -34,6 +33,9 @@ def shortcut_matches(s: SingleKey, ev: KeyEvent) -> bool:
         return s.key == ev.native_key and smods == mods
     if s.key == ev.key and mods == smods:
         return True
-    if ev.shifted_key and mods & GLFW_MOD_SHIFT and (mods & ~GLFW_MOD_SHIFT) == smods and ev.shifted_key == s.key:
-        return True
-    return False
+    return bool(
+        ev.shifted_key
+        and mods & GLFW_MOD_SHIFT
+        and (mods & ~GLFW_MOD_SHIFT) == smods
+        and ev.shifted_key == s.key
+    )

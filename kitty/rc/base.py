@@ -189,16 +189,14 @@ class ArgsHandling:
 
     @property
     def args_count(self) -> Optional[int]:
-        if not self.spec:
-            return 0
-        return self.count
+        return self.count if self.spec else 0
 
     def as_go_completion_code(self, go_name: str) -> Iterator[str]:
         c = self.args_count
         if c is not None:
             yield f'{go_name}.StopCompletingAtArg = {c}'
         if self.completion:
-            yield from self.completion.as_go_code(go_name + '.ArgCompleter', ' = ')
+            yield from self.completion.as_go_code(f'{go_name}.ArgCompleter', ' = ')
 
     def as_go_code(self, cmd_name: str, field_types: Dict[str, str], handled_fields: Set[str]) -> Iterator[str]:
         c = self.args_count
@@ -354,20 +352,15 @@ class RemoteCommand:
     def tabs_for_match_payload(self, boss: 'Boss', window: Optional['Window'], payload_get: PayloadGetType) -> List['Tab']:
         if payload_get('all'):
             return list(boss.all_tabs)
-        match = payload_get('match')
-        if match:
-            tabs = list(boss.match_tabs(match))
-            if not tabs:
+        if match := payload_get('match'):
+            if tabs := list(boss.match_tabs(match)):
+                return tabs
+            else:
                 raise MatchError(match, 'tabs')
-            return tabs
         if window and payload_get('self') in (None, True):
-            q = boss.tab_for_window(window)
-            if q:
+            if q := boss.tab_for_window(window):
                 return [q]
-        t = boss.active_tab
-        if t:
-            return [t]
-        return []
+        return [t] if (t := boss.active_tab) else []
 
     def windows_for_payload(self, boss: 'Boss', window: Optional['Window'], payload_get: PayloadGetType) -> List['Window']:
         if payload_get('all'):

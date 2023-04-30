@@ -11,30 +11,13 @@ import subprocess
 import sys
 import tempfile
 
-if False:
-    dmg = sys.argv[-1]
-    mp = tempfile.mkdtemp()
-    atexit.register(os.rmdir, mp)
-    subprocess.check_call(f'hdiutil attach {dmg} -mountpoint {mp}'.split())
-    try:
-        os.chdir(mp)
-        for app in glob.glob('*.app'):
-            d = os.path.join('/Applications', app)
-            if os.path.exists(d):
-                shutil.rmtree(d)
-            subprocess.check_call(f'ditto -v {app} {d}'.split())
-    finally:
-        os.chdir('/')
-        subprocess.check_call(f'hdiutil detach {mp}'.split())
-
 # EOF_REMOTE
 
 HOST = 'ox'
 
 base = os.path.dirname(os.path.abspath(__file__))
-if True:
-    sys.path.insert(0, base)
-    from kitty.constants import str_version
+sys.path.insert(0, base)
+from kitty.constants import str_version
 
 dmg = f'kitty-{str_version}.dmg'
 

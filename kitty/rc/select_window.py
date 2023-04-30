@@ -58,9 +58,13 @@ be refocused.
     is_asynchronous = True
 
     def message_to_kitty(self, global_opts: RCOptions, opts: 'CLIOptions', args: ArgsType) -> PayloadType:
-        ans = {'self': opts.self, 'match': opts.match, 'title': opts.title, 'exclude_active': opts.exclude_active,
-               'reactivate_prev_tab': opts.reactivate_prev_tab}
-        return ans
+        return {
+            'self': opts.self,
+            'match': opts.match,
+            'title': opts.title,
+            'exclude_active': opts.exclude_active,
+            'reactivate_prev_tab': opts.reactivate_prev_tab,
+        }
 
     def response_from_kitty(self, boss: Boss, window: Optional[Window], payload_get: PayloadGetType) -> ResponseType:
         responder = self.create_async_responder(payload_get, window)

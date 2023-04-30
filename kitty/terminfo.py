@@ -27,10 +27,6 @@ def encode_keystring(keybytes: bytes) -> str:
 
 names = 'xterm-kitty', 'KovIdTTY'
 
-termcap_aliases = {
-    'TN': 'name'
-}
-
 bool_capabilities = {
     # auto_right_margin (terminal has automatic margins)
     'am',
@@ -66,18 +62,6 @@ bool_capabilities = {
     # 'bce',
 }
 
-termcap_aliases.update({
-    'am': 'am',
-    'cc': 'ccc',
-    'km': 'km',
-    '5i': 'mc5i',
-    'mi': 'mir',
-    'ms': 'msgr',
-    'NP': 'npc',
-    'xn': 'xenl',
-    'hs': 'hs',
-})
-
 numeric_capabilities = {
     # maximum number of colors on screen
     'colors': 256,
@@ -89,357 +73,377 @@ numeric_capabilities = {
     'pairs': 32767,
 }
 
-termcap_aliases.update({
-    'Co': 'colors',
-    'pa': 'pairs',
-    'li': 'lines',
-    'co': 'cols',
-    'it': 'it',
-})
-
-string_capabilities = {
-    # graphics charset pairs
-    'acsc': r'++\,\,--..00``aaffgghhiijjkkllmmnnooppqqrrssttuuvvwwxxyyzz{{||}}~~',
-    # The audible bell character
-    'bel': r'^G',
-    # Escape code for bold
-    'bold': r'\E[1m',
-    # Back tab
-    'cbt': r'\E[Z',
-    'kcbt': r'\E[Z',
-    # Make cursor invisible
-    'civis': r'\E[?25l',
-    # Clear screen
-    'clear': r'\E[H\E[2J',
-    # Make cursor appear normal
-    'cnorm': r'\E[?12h\E[?25h',
-    # Carriage return
-    'cr': r'^M',  # CR (carriage return \r)
-    # Change scroll region
-    'csr': r'\E[%i%p1%d;%p2%dr',
-    # Move cursor to the left by the specified amount
-    'cub': r'\E[%p1%dD',
-    'cub1': r'^H',  # BS (backspace)
-    # Move cursor down specified number of lines
-    'cud': r'\E[%p1%dB',
-    'cud1': r'^J',  # LF (line-feed \n)
-    # Move cursor to the right by the specified amount
-    'cuf': r'\E[%p1%dC',
-    'cuf1': r'\E[C',
-    # Move cursor up specified number of lines
-    'cuu': r'\E[%p1%dA',
-    'cuu1': r'\E[A',
-    # Move cursor to specified location
-    'cup': r'\E[%i%p1%d;%p2%dH',
-    # Make cursor very visible
-    'cvvis': r'\E[?12;25h',
-    # Delete the specified number of characters
-    'dch': r'\E[%p1%dP',
-    'dch1': r'\E[P',
-    # Turn on half bright mode
-    'dim': r'\E[2m',
-    # Delete the specified number of lines
-    'dl': r'\E[%p1%dM',
-    'dl1': r'\E[M',
-    # Erase specified number of characters
-    'ech': r'\E[%p1%dX',
-    # Clear to end of screen
-    'ed': r'\E[J',
-    # Clear to end of line
-    'el': r'\E[K',
-    # Clear to start of line
-    'el1': r'\E[1K',
-    # visible bell
-    'flash': r'\E[?5h$<100/>\E[?5l',
-    # Home cursor
-    'home': r'\E[H',
-    # Move cursor to column
-    'hpa': r'\E[%i%p1%dG',
-    # Move to next tab
-    'ht': r'^I',
-    # Set tabstop at current position
-    'hts': r'\EH',
-    # Insert specified number of characters
-    'ich': r'\E[%p1%d@',
-    # Insert specified number of lines
-    'il': r'\E[%p1%dL',
-    'il1': r'\E[L',
-    # scroll up by specified amount
-    'ind': r'^J',
-    'indn': r'\E[%p1%dS',
-    # initialize color (set dynamic colors)
-    'initc': r'\E]4;%p1%d;rgb\:%p2%{255}%*%{1000}%/%2.2X/%p3%{255}%*%{1000}%/%2.2X/%p4%{255}%*%{1000}%/%2.2X\E\\',
-    # Set all colors to original values
-    'oc': r'\E]104\007',
-    # turn on blank mode (characters invisible)
-    # 'invis': r'\E[8m',
-    # Backspace
-    'kbs': r'\177',
-    # Mouse event has occurred
-    'kmous': r'\E[M',
-    # Scroll backwards (reverse index)
-    'kri': r'\E[1;2A',
-    # scroll forwards (index)
-    'kind': r'\E[1;2B',
-    # Restore cursor
-    'rc': r'\E8',
-    # Repeat preceding character
-    'rep': r'%p1%c\E[%p2%{1}%-%db',
-    # Reverse video
-    'rev': r'\E[7m',
-    # Scroll backwards the specified number of lines (reverse index)
-    'ri': r'\EM',
-    'rin': r'\E[%p1%dT',
-    # Turn off automatic margins
-    'rmam': r'\E[?7l',
-    # Exit alternate screen
-    'rmcup': r'\E[?1049l',
-    # Exit insert mode
-    'rmir': r'\E[4l',
-    # Exit application keypad mode
-    'rmkx': r'\E[?1l',
-    # Exit standout mode
-    'rmso': r'\E[27m',
-    # Exit underline mode
-    'rmul': r'\E[24m',
-    # Exit strikethrough mode
-    'rmxx': r'\E[29m',
-    # Reset string1 (empty OSC sequence to exit OSC/OTH modes, and regular reset)
-    'rs1': r'\E]\E\\\Ec',
-    # Save cursor
-    'sc': r'\E7',
-    # Set background color
-    'setab': r'\E[%?%p1%{8}%<%t4%p1%d%e%p1%{16}%<%t10%p1%{8}%-%d%e48;5;%p1%d%;m',
-    # Set foreground color
-    'setaf': r'\E[%?%p1%{8}%<%t3%p1%d%e%p1%{16}%<%t9%p1%{8}%-%d%e38;5;%p1%d%;m',
-    # Set attributes
-    'sgr': r'%?%p9%t\E(0%e\E(B%;\E[0%?%p6%t;1%;%?%p2%t;4%;%?%p1%p3%|%t;7%;%?%p4%t;5%;%?%p7%t;8%;m',
-    # Clear all attributes
-    'sgr0': r'\E(B\E[m',
-    # Reset color pair to its original value
-    'op': r'\E[39;49m',
-    # Turn on automatic margins
-    'smam': r'\E[?7h',
-    # Start alternate screen
-    'smcup': r'\E[?1049h',
-    # Enter insert mode
-    'smir': r'\E[4h',
-    # Enter application keymap mode
-    'smkx': r'\E[?1h',
-    # Enter standout mode
-    'smso': r'\E[7m',
-    # Enter underline mode
-    'smul': r'\E[4m',
-    'Smulx': r'\E[4:%p1%dm',  # this is a non-standard extension that some terminals use, so match them
-    # Enter strikethrough mode
-    'smxx': r'\E[9m',
-    'Sync': r'\EP=%p1%ds\E\\',  # this is a non-standard extension supported by tmux for synchronized updates
-    # Clear all tab stops
-    'tbc': r'\E[3g',
-    # To status line (used to set window titles)
-    'tsl': r'\E]2;',
-    # From status line (end window title string)
-    'fsl': r'^G',
-    # Disable status line (clear window title)
-    'dsl': r'\E]2;\007',
-    # Move to specified line
-    'vpa': r'\E[%i%p1%dd',
-    # Enter italics mode
-    'sitm': r'\E[3m',
-    # Leave italics mode
-    'ritm': r'\E[23m',
-    # Select alternate charset
-    'smacs': r'\E(0',
-    'rmacs': r'\E(B',
-    # Special keys
-    'khlp': r'',
-    'kund': r'',
-    'ka1': r'',
-    'ka3': r'',
-    'kc1': r'',
-    'kc3': r'',
-    # Set RGB foreground color (non-standard used by neovim)
-    'setrgbf': r'\E[38:2:%p1%d:%p2%d:%p3%dm',
-    # Set RGB background color (non-standard used by neovim)
-    'setrgbb': r'\E[48:2:%p1%d:%p2%d:%p3%dm',
-
-    # The following entries are for compatibility with xterm,
-    # and shell scripts using e.g. `tput u7` to emit a CPR escape
-    # See https://invisible-island.net/ncurses/terminfo.src.html
-    # and INTERPRETATION OF USER CAPABILITIES
-    'u6': r'\E[%i%d;%dR',
-    'u7': r'\E[6n',
-    'u8': r'\E[?%[;0123456789]c',
-    'u9': r'\E[c',
-
-    # The following are entries that we don't use
-    # # turn on blank mode, (characters invisible)
-    # 'invis': r'\E[8m',
-    # # init2 string
-    # 'is2': r'\E[!p\E[?3;4l\E[4l\E>',
-    # # Enter/send key
-    # 'kent': r'\EOM',
-    # # reset2
-    # 'rs2': r'\E[!p\E[?3;4l\E[4l\E>',
-}
-
-string_capabilities.update({
-    f'kf{n}':
-        encode_keystring(modify_key_bytes(b'\033' + value, 0))
-    for n, value in zip(range(1, 13),
-                        b'OP OQ OR OS [15~ [17~ [18~ [19~ [20~ [21~ [23~ [24~'.split())
-})
-
-string_capabilities.update({
-    f'kf{offset + n}':
-        encode_keystring(modify_key_bytes(b'\033' + value, mod))
-    for offset, mod in {12: 2, 24: 5, 36: 6, 48: 3, 60: 4}.items()
-    for n, value in zip(range(1, 13),
-                        b'OP OQ [13~ OS [15~ [17~ [18~ [19~ [20~ [21~ [23~ [24~'.split())
-    if offset + n < 64
-})
-
-string_capabilities.update({
-    name.format(unmod=unmod, key=key):
-        encode_keystring(modify_key_bytes(b'\033' + value, mod))
-    for unmod, key, value in zip(
-        'cuu1 cud1 cuf1 cub1 beg end home ich1 dch1 pp  np'.split(),
-        'UP   DN   RIT  LFT  BEG END HOM  IC   DC   PRV NXT'.split(),
-        b'OA  OB   OC   OD   OE  OF  OH   [2~  [3~  [5~ [6~'.split())
-    for name, mod in {
-        'k{unmod}': 0, 'k{key}': 2, 'k{key}3': 3, 'k{key}4': 4,
-        'k{key}5': 5, 'k{key}6': 6, 'k{key}7': 7}.items()
-})
-
-termcap_aliases.update({
-    'ac': 'acsc',
-    'bl': 'bel',
-    'md': 'bold',
-    'bt': 'cbt',
-    'kB': 'kcbt',
-    'cl': 'clear',
-    'vi': 'civis',
-    'vs': 'cvvis',
-    've': 'cnorm',
-    'cr': 'cr',
-    'cs': 'csr',
-    'LE': 'cub',
-    'le': 'cub1',
-    'DO': 'cud',
-    'do': 'cud1',
-    'UP': 'cuu',
-    'up': 'cuu1',
-    'nd': 'cuf1',
-    'RI': 'cuf',
-    'cm': 'cup',
-    'DC': 'dch',
-    'dc': 'dch1',
-    'mh': 'dim',
-    'DL': 'dl',
-    'dl': 'dl1',
-    'ec': 'ech',
-    'cd': 'ed',
-    'ce': 'el',
-    'cb': 'el1',
-    'vb': 'flash',
-    'ho': 'home',
-    'ch': 'hpa',
-    'ta': 'ht',
-    'st': 'hts',
-    'IC': 'ich',
-    'AL': 'il',
-    'al': 'il1',
-    'sf': 'ind',
-    'SF': 'indn',
-    'Ic': 'initc',
-    'oc': 'oc',
-    # 'mk': 'invis',
-    'kb': 'kbs',
-    'kl': 'kcub1',
-    'kd': 'kcud1',
-    'kr': 'kcuf1',
-    'ku': 'kcuu1',
-    'kh': 'khome',
-    '@7': 'kend',
-    'kI': 'kich1',
-    'kD': 'kdch1',
-    'Km': 'kmous',
-    'kN': 'knp',
-    'kP': 'kpp',
-    'kR': 'kri',
-    'kF': 'kind',
-    'rc': 'rc',
-    'rp': 'rep',
-    'mr': 'rev',
-    'sr': 'ri',
-    'SR': 'rin',
-    'RA': 'rmam',
-    'te': 'rmcup',
-    'ei': 'rmir',
-    'se': 'rmso',
-    'ue': 'rmul',
-    'Te': 'rmxx',
-    'r1': 'rs1',
-    'sc': 'sc',
-    'AB': 'setab',
-    'AF': 'setaf',
-    'sa': 'sgr',
-    'me': 'sgr0',
-    'op': 'op',
-    'SA': 'smam',
-    'ti': 'smcup',
-    'im': 'smir',
-    'so': 'smso',
-    'us': 'smul',
-    'Ts': 'smxx',
-    'ct': 'tbc',
-    'cv': 'vpa',
-    'ZH': 'sitm',
-    'ZR': 'ritm',
-    'as': 'smacs',
-    'ae': 'rmacs',
-    'ks': 'smkx',
-    'ke': 'rmkx',
-    '#2': 'kHOM',
-    '#3': 'kIC',
-    '#4': 'kLFT',
-    '*4': 'kDC',
-    '*7': 'kEND',
-    '%c': 'kNXT',
-    '%e': 'kPRV',
-    '%i': 'kRIT',
-    '%1': 'khlp',
-    '&8': 'kund',
-    'K1': 'ka1',
-    'K3': 'ka3',
-    'K4': 'kc1',
-    'K5': 'kc3',
-    'ts': 'tsl',
-    'fs': 'fsl',
-    'ds': 'dsl',
-
-    'u6': 'u6',
-    'u7': 'u7',
-    'u8': 'u8',
-    'u9': 'u9',
-
-    # 'ut': 'bce',
-    # 'ds': 'dsl',
-    # 'fs': 'fsl',
-    # 'mk': 'invis',
-    # 'is': 'is2',
-    # '@8': 'kent',
-    # 'r2': 'rs2',
-})
-
-termcap_aliases.update({
-    tc: f'kf{n}'
-    for n, tc in enumerate(
-        'k1 k2 k3 k4 k5 k6 k7 k8 k9 k; F1 F2 F3 F4 F5 F6 F7 F8 F9 FA '
-        'FB FC FD FE FF FG FH FI FJ FK FL FM FN FO FP FQ FR FS FT FU '
-        'FV FW FX FY FZ Fa Fb Fc Fd Fe Ff Fg Fh Fi Fj Fk Fl Fm Fn Fo '
-        'Fp Fq Fr'.split(), 1)})
-
+string_capabilities = (
+    {
+        # graphics charset pairs
+        'acsc': r'++\,\,--..00``aaffgghhiijjkkllmmnnooppqqrrssttuuvvwwxxyyzz{{||}}~~',
+        # The audible bell character
+        'bel': r'^G',
+        # Escape code for bold
+        'bold': r'\E[1m',
+        # Back tab
+        'cbt': r'\E[Z',
+        'kcbt': r'\E[Z',
+        # Make cursor invisible
+        'civis': r'\E[?25l',
+        # Clear screen
+        'clear': r'\E[H\E[2J',
+        # Make cursor appear normal
+        'cnorm': r'\E[?12h\E[?25h',
+        # Carriage return
+        'cr': r'^M',  # CR (carriage return \r)
+        # Change scroll region
+        'csr': r'\E[%i%p1%d;%p2%dr',
+        # Move cursor to the left by the specified amount
+        'cub': r'\E[%p1%dD',
+        'cub1': r'^H',  # BS (backspace)
+        # Move cursor down specified number of lines
+        'cud': r'\E[%p1%dB',
+        'cud1': r'^J',  # LF (line-feed \n)
+        # Move cursor to the right by the specified amount
+        'cuf': r'\E[%p1%dC',
+        'cuf1': r'\E[C',
+        # Move cursor up specified number of lines
+        'cuu': r'\E[%p1%dA',
+        'cuu1': r'\E[A',
+        # Move cursor to specified location
+        'cup': r'\E[%i%p1%d;%p2%dH',
+        # Make cursor very visible
+        'cvvis': r'\E[?12;25h',
+        # Delete the specified number of characters
+        'dch': r'\E[%p1%dP',
+        'dch1': r'\E[P',
+        # Turn on half bright mode
+        'dim': r'\E[2m',
+        # Delete the specified number of lines
+        'dl': r'\E[%p1%dM',
+        'dl1': r'\E[M',
+        # Erase specified number of characters
+        'ech': r'\E[%p1%dX',
+        # Clear to end of screen
+        'ed': r'\E[J',
+        # Clear to end of line
+        'el': r'\E[K',
+        # Clear to start of line
+        'el1': r'\E[1K',
+        # visible bell
+        'flash': r'\E[?5h$<100/>\E[?5l',
+        # Home cursor
+        'home': r'\E[H',
+        # Move cursor to column
+        'hpa': r'\E[%i%p1%dG',
+        # Move to next tab
+        'ht': r'^I',
+        # Set tabstop at current position
+        'hts': r'\EH',
+        # Insert specified number of characters
+        'ich': r'\E[%p1%d@',
+        # Insert specified number of lines
+        'il': r'\E[%p1%dL',
+        'il1': r'\E[L',
+        # scroll up by specified amount
+        'ind': r'^J',
+        'indn': r'\E[%p1%dS',
+        # initialize color (set dynamic colors)
+        'initc': r'\E]4;%p1%d;rgb\:%p2%{255}%*%{1000}%/%2.2X/%p3%{255}%*%{1000}%/%2.2X/%p4%{255}%*%{1000}%/%2.2X\E\\',
+        # Set all colors to original values
+        'oc': r'\E]104\007',
+        # turn on blank mode (characters invisible)
+        # 'invis': r'\E[8m',
+        # Backspace
+        'kbs': r'\177',
+        # Mouse event has occurred
+        'kmous': r'\E[M',
+        # Scroll backwards (reverse index)
+        'kri': r'\E[1;2A',
+        # scroll forwards (index)
+        'kind': r'\E[1;2B',
+        # Restore cursor
+        'rc': r'\E8',
+        # Repeat preceding character
+        'rep': r'%p1%c\E[%p2%{1}%-%db',
+        # Reverse video
+        'rev': r'\E[7m',
+        # Scroll backwards the specified number of lines (reverse index)
+        'ri': r'\EM',
+        'rin': r'\E[%p1%dT',
+        # Turn off automatic margins
+        'rmam': r'\E[?7l',
+        # Exit alternate screen
+        'rmcup': r'\E[?1049l',
+        # Exit insert mode
+        'rmir': r'\E[4l',
+        # Exit application keypad mode
+        'rmkx': r'\E[?1l',
+        # Exit standout mode
+        'rmso': r'\E[27m',
+        # Exit underline mode
+        'rmul': r'\E[24m',
+        # Exit strikethrough mode
+        'rmxx': r'\E[29m',
+        # Reset string1 (empty OSC sequence to exit OSC/OTH modes, and regular reset)
+        'rs1': r'\E]\E\\\Ec',
+        # Save cursor
+        'sc': r'\E7',
+        # Set background color
+        'setab': r'\E[%?%p1%{8}%<%t4%p1%d%e%p1%{16}%<%t10%p1%{8}%-%d%e48;5;%p1%d%;m',
+        # Set foreground color
+        'setaf': r'\E[%?%p1%{8}%<%t3%p1%d%e%p1%{16}%<%t9%p1%{8}%-%d%e38;5;%p1%d%;m',
+        # Set attributes
+        'sgr': r'%?%p9%t\E(0%e\E(B%;\E[0%?%p6%t;1%;%?%p2%t;4%;%?%p1%p3%|%t;7%;%?%p4%t;5%;%?%p7%t;8%;m',
+        # Clear all attributes
+        'sgr0': r'\E(B\E[m',
+        # Reset color pair to its original value
+        'op': r'\E[39;49m',
+        # Turn on automatic margins
+        'smam': r'\E[?7h',
+        # Start alternate screen
+        'smcup': r'\E[?1049h',
+        # Enter insert mode
+        'smir': r'\E[4h',
+        # Enter application keymap mode
+        'smkx': r'\E[?1h',
+        # Enter standout mode
+        'smso': r'\E[7m',
+        # Enter underline mode
+        'smul': r'\E[4m',
+        'Smulx': r'\E[4:%p1%dm',  # this is a non-standard extension that some terminals use, so match them
+        # Enter strikethrough mode
+        'smxx': r'\E[9m',
+        'Sync': r'\EP=%p1%ds\E\\',  # this is a non-standard extension supported by tmux for synchronized updates
+        # Clear all tab stops
+        'tbc': r'\E[3g',
+        # To status line (used to set window titles)
+        'tsl': r'\E]2;',
+        # From status line (end window title string)
+        'fsl': r'^G',
+        # Disable status line (clear window title)
+        'dsl': r'\E]2;\007',
+        # Move to specified line
+        'vpa': r'\E[%i%p1%dd',
+        # Enter italics mode
+        'sitm': r'\E[3m',
+        # Leave italics mode
+        'ritm': r'\E[23m',
+        # Select alternate charset
+        'smacs': r'\E(0',
+        'rmacs': r'\E(B',
+        # Special keys
+        'khlp': r'',
+        'kund': r'',
+        'ka1': r'',
+        'ka3': r'',
+        'kc1': r'',
+        'kc3': r'',
+        # Set RGB foreground color (non-standard used by neovim)
+        'setrgbf': r'\E[38:2:%p1%d:%p2%d:%p3%dm',
+        # Set RGB background color (non-standard used by neovim)
+        'setrgbb': r'\E[48:2:%p1%d:%p2%d:%p3%dm',
+        # The following entries are for compatibility with xterm,
+        # and shell scripts using e.g. `tput u7` to emit a CPR escape
+        # See https://invisible-island.net/ncurses/terminfo.src.html
+        # and INTERPRETATION OF USER CAPABILITIES
+        'u6': r'\E[%i%d;%dR',
+        'u7': r'\E[6n',
+        'u8': r'\E[?%[;0123456789]c',
+        'u9': r'\E[c',
+        # The following are entries that we don't use
+        # # turn on blank mode, (characters invisible)
+        # 'invis': r'\E[8m',
+        # # init2 string
+        # 'is2': r'\E[!p\E[?3;4l\E[4l\E>',
+        # # Enter/send key
+        # 'kent': r'\EOM',
+        # # reset2
+        # 'rs2': r'\E[!p\E[?3;4l\E[4l\E>',
+    }
+    | {
+        f'kf{n}': encode_keystring(modify_key_bytes(b'\033' + value, 0))
+        for n, value in zip(
+            range(1, 13),
+            b'OP OQ OR OS [15~ [17~ [18~ [19~ [20~ [21~ [23~ [24~'.split(),
+        )
+    }
+    | {
+        f'kf{offset + n}': encode_keystring(
+            modify_key_bytes(b'\033' + value, mod)
+        )
+        for offset, mod in {12: 2, 24: 5, 36: 6, 48: 3, 60: 4}.items()
+        for n, value in zip(
+            range(1, 13),
+            b'OP OQ [13~ OS [15~ [17~ [18~ [19~ [20~ [21~ [23~ [24~'.split(),
+        )
+        if offset + n < 64
+    }
+    | {
+        name.format(unmod=unmod, key=key): encode_keystring(
+            modify_key_bytes(b'\033' + value, mod)
+        )
+        for unmod, key, value in zip(
+            'cuu1 cud1 cuf1 cub1 beg end home ich1 dch1 pp  np'.split(),
+            'UP   DN   RIT  LFT  BEG END HOM  IC   DC   PRV NXT'.split(),
+            b'OA  OB   OC   OD   OE  OF  OH   [2~  [3~  [5~ [6~'.split(),
+        )
+        for name, mod in {
+            'k{unmod}': 0,
+            'k{key}': 2,
+            'k{key}3': 3,
+            'k{key}4': 4,
+            'k{key}5': 5,
+            'k{key}6': 6,
+            'k{key}7': 7,
+        }.items()
+    }
+)
+termcap_aliases = (
+    {'TN': 'name'}
+    | {
+        'am': 'am',
+        'cc': 'ccc',
+        'km': 'km',
+        '5i': 'mc5i',
+        'mi': 'mir',
+        'ms': 'msgr',
+        'NP': 'npc',
+        'xn': 'xenl',
+        'hs': 'hs',
+    }
+    | {
+        'Co': 'colors',
+        'pa': 'pairs',
+        'li': 'lines',
+        'co': 'cols',
+        'it': 'it',
+    }
+    | {
+        'ac': 'acsc',
+        'bl': 'bel',
+        'md': 'bold',
+        'bt': 'cbt',
+        'kB': 'kcbt',
+        'cl': 'clear',
+        'vi': 'civis',
+        'vs': 'cvvis',
+        've': 'cnorm',
+        'cr': 'cr',
+        'cs': 'csr',
+        'LE': 'cub',
+        'le': 'cub1',
+        'DO': 'cud',
+        'do': 'cud1',
+        'UP': 'cuu',
+        'up': 'cuu1',
+        'nd': 'cuf1',
+        'RI': 'cuf',
+        'cm': 'cup',
+        'DC': 'dch',
+        'dc': 'dch1',
+        'mh': 'dim',
+        'DL': 'dl',
+        'dl': 'dl1',
+        'ec': 'ech',
+        'cd': 'ed',
+        'ce': 'el',
+        'cb': 'el1',
+        'vb': 'flash',
+        'ho': 'home',
+        'ch': 'hpa',
+        'ta': 'ht',
+        'st': 'hts',
+        'IC': 'ich',
+        'AL': 'il',
+        'al': 'il1',
+        'sf': 'ind',
+        'SF': 'indn',
+        'Ic': 'initc',
+        'oc': 'oc',
+        # 'mk': 'invis',
+        'kb': 'kbs',
+        'kl': 'kcub1',
+        'kd': 'kcud1',
+        'kr': 'kcuf1',
+        'ku': 'kcuu1',
+        'kh': 'khome',
+        '@7': 'kend',
+        'kI': 'kich1',
+        'kD': 'kdch1',
+        'Km': 'kmous',
+        'kN': 'knp',
+        'kP': 'kpp',
+        'kR': 'kri',
+        'kF': 'kind',
+        'rc': 'rc',
+        'rp': 'rep',
+        'mr': 'rev',
+        'sr': 'ri',
+        'SR': 'rin',
+        'RA': 'rmam',
+        'te': 'rmcup',
+        'ei': 'rmir',
+        'se': 'rmso',
+        'ue': 'rmul',
+        'Te': 'rmxx',
+        'r1': 'rs1',
+        'sc': 'sc',
+        'AB': 'setab',
+        'AF': 'setaf',
+        'sa': 'sgr',
+        'me': 'sgr0',
+        'op': 'op',
+        'SA': 'smam',
+        'ti': 'smcup',
+        'im': 'smir',
+        'so': 'smso',
+        'us': 'smul',
+        'Ts': 'smxx',
+        'ct': 'tbc',
+        'cv': 'vpa',
+        'ZH': 'sitm',
+        'ZR': 'ritm',
+        'as': 'smacs',
+        'ae': 'rmacs',
+        'ks': 'smkx',
+        'ke': 'rmkx',
+        '#2': 'kHOM',
+        '#3': 'kIC',
+        '#4': 'kLFT',
+        '*4': 'kDC',
+        '*7': 'kEND',
+        '%c': 'kNXT',
+        '%e': 'kPRV',
+        '%i': 'kRIT',
+        '%1': 'khlp',
+        '&8': 'kund',
+        'K1': 'ka1',
+        'K3': 'ka3',
+        'K4': 'kc1',
+        'K5': 'kc3',
+        'ts': 'tsl',
+        'fs': 'fsl',
+        'ds': 'dsl',
+        'u6': 'u6',
+        'u7': 'u7',
+        'u8': 'u8',
+        'u9': 'u9',
+        # 'ut': 'bce',
+        # 'ds': 'dsl',
+        # 'fs': 'fsl',
+        # 'mk': 'invis',
+        # 'is': 'is2',
+        # '@8': 'kent',
+        # 'r2': 'rs2',
+    }
+    | {
+        tc: f'kf{n}'
+        for n, tc in enumerate(
+            'k1 k2 k3 k4 k5 k6 k7 k8 k9 k; F1 F2 F3 F4 F5 F6 F7 F8 F9 FA '
+            'FB FC FD FE FF FG FH FI FJ FK FL FM FN FO FP FQ FR FS FT FU '
+            'FV FW FX FY FZ Fa Fb Fc Fd Fe Ff Fg Fh Fi Fj Fk Fl Fm Fn Fo '
+            'Fp Fq Fr'.split(),
+            1,
+        )
+    }
+)
 queryable_capabilities = cast(Dict[str, str], numeric_capabilities.copy())
 queryable_capabilities.update(string_capabilities)
 extra = (bool_capabilities | numeric_capabilities.keys() | string_capabilities.keys()) - set(termcap_aliases.values())

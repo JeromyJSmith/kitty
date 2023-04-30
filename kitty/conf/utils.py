@@ -73,7 +73,7 @@ def unit_float(x: ConvertibleToNumbers) -> float:
 
 
 def to_bool(x: str) -> bool:
-    return x.lower() in ('y', 'yes', 'true')
+    return x.lower() in {'y', 'yes', 'true'}
 
 
 class ToCmdline:
@@ -89,8 +89,9 @@ class ToCmdline:
 
     def filter_env_vars(self, *a: str, **override: str) -> 'ToCmdline':
         remove = frozenset(a)
-        self.override_env = {k: v for k, v in os.environ.items() if k not in remove}
-        self.override_env.update(override)
+        self.override_env = {
+            k: v for k, v in os.environ.items() if k not in remove
+        } | override
         return self
 
     def __call__(self, x: str, expand: bool = True) -> List[str]:
@@ -179,9 +180,7 @@ def os_name() -> str:
         return 'macos'
     if 'bsd' in _plat:
         return 'bsd'
-    if 'linux' in _plat:
-        return 'linux'
-    return 'unknown'
+    return 'linux' if 'linux' in _plat else 'unknown'
 
 
 class NamedLineIterator:
@@ -216,14 +215,17 @@ def parse_line(
             vals = tuple(map(lambda x: str(os.fspath(x)), sorted(Path(base_path_for_includes).glob(val))))
         elif key == 'envinclude':
             from fnmatch import fnmatchcase
-            for x in os.environ:
+            for x, value in os.environ.items():
                 if fnmatchcase(x, val):
                     with currently_parsing.set_file(f'<env var: {x}>'):
                         _parse(
-                            NamedLineIterator(os.path.join(base_path_for_includes, ''), iter(os.environ[x].splitlines())),
+                            NamedLineIterator(
+                                os.path.join(base_path_for_includes, ''),
+                                iter(value.splitlines()),
+                            ),
                             parse_conf_item,
                             ans,
-                            accumulate_bad_lines
+                            accumulate_bad_lines,
                         )
             return
         else:
@@ -236,15 +238,9 @@ def parse_line(
                     with currently_parsing.set_file(val):
                         _parse(include, parse_conf_item, ans, accumulate_bad_lines)
             except FileNotFoundError:
-                log_error(
-                    'Could not find included config file: {}, ignoring'.
-                    format(val)
-                )
+                log_error(f'Could not find included config file: {val}, ignoring')
             except OSError:
-                log_error(
-                    'Could not read from included config file: {}, ignoring'.
-                    format(val)
-                )
+                log_error(f'Could not read from included config file: {val}, ignoring')
         return
     if not parse_conf_item(key, val, ans):
         log_error(f'Ignoring unknown config key: {key}')
@@ -256,8 +252,7 @@ def _parse(
     ans: Dict[str, Any],
     accumulate_bad_lines: Optional[List[BadLine]] = None
 ) -> None:
-    name = getattr(lines, 'name', None)
-    if name:
+    if name := getattr(lines, 'name', None):
         base_path_for_includes = os.path.abspath(name) if name.endswith(os.path.sep) else os.path.dirname(os.path.abspath(name))
     else:
         from ..constants import config_dir
@@ -284,9 +279,7 @@ def parse_config_base(
 
 
 def merge_dicts(defaults: Dict[str, Any], newvals: Dict[str, Any]) -> Dict[str, Any]:
-    ans = defaults.copy()
-    ans.update(newvals)
-    return ans
+    return defaults | newvals
 
 
 def resolve_config(SYSTEM_CONF: str, defconf: str, config_files_on_cmd_line: Sequence[str] = ()) -> Generator[str, None, None]:

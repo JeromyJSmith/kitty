@@ -145,18 +145,14 @@ def identify(path: str) -> ImageData:
         '{"fmt":"%m","canvas":"%g","transparency":"%A","gap":"%T","index":"%p","size":"%wx%h",'
         '"dpi":"%xx%y","dispose":"%D","orientation":"%[EXIF:Orientation]"},'
     )
-    exe = which('magick')
-    if exe:
-        cmd = [exe, 'identify']
-    else:
-        cmd = ['identify']
+    cmd = [exe, 'identify'] if (exe := which('magick')) else ['identify']
     p = run_imagemagick(path, cmd + ['-format', q, '--', path])
     raw = p.stdout.rstrip(b',')
     data = json.loads(b'[' + raw + b']')
     first = data[0]
     frames = list(map(Frame, data))
     image_fmt = first['fmt'].lower()
-    if image_fmt == 'gif' and not any(f.gap > 0 for f in frames):
+    if image_fmt == 'gif' and all(f.gap <= 0 for f in frames):
         # Some broken GIF images have all zero gaps, browsers with their usual
         # idiot ideas render these with a default 100ms gap https://bugzilla.mozilla.org/show_bug.cgi?id=125137
         # Browsers actually force a 100ms gap at any zero gap frame, but that
@@ -164,11 +160,7 @@ def identify(path: str) -> ImageData:
         # sophisticated blending, so we dont do that.
         for f in frames:
             f.gap = 100
-    mode = 'rgb'
-    for f in frames:
-        if f.mode == 'rgba':
-            mode = 'rgba'
-            break
+    mode = next(('rgba' for f in frames if f.mode == 'rgba'), 'rgb')
     return ImageData(image_fmt, frames[0].canvas_width, frames[0].canvas_height, mode, frames)
 
 
@@ -212,11 +204,10 @@ def render_image(
     cmd.append('-auto-orient')
     scaled = False
     width, height = m.width, m.height
-    if scale_up:
-        if width < available_width:
-            r = available_width / width
-            width, height = available_width, int(height * r)
-            scaled = True
+    if scale_up and width < available_width:
+        r = available_width / width
+        width, height = available_width, int(height * r)
+        scaled = True
     if scaled or width > available_width or height > available_height:
         width, height = fit_image(width, height, available_width, available_height)
         resize_cmd = ['-resize', f'{width}x{height}!']
@@ -267,7 +258,7 @@ def render_image(
                 f.canvas_x, f.canvas_y = map(int, pos.split('+', 1))
             except Exception:
                 raise OutdatedImageMagick(f'Unexpected output filename: {x!r} produced by ImageMagick command: {last_imagemagick_cmd}')
-            f.path = output_prefix + f'-{index}.{m.mode}'
+            f.path = f'{output_prefix}-{index}.{m.mode}'
             os.rename(os.path.join(tdir, x), f.path)
             check_resize(f)
     f = ans.frames[0]
@@ -380,10 +371,7 @@ class GraphicsCommand:
         return ans
 
     def serialize(self, payload: Union[bytes, str] = b'') -> bytes:
-        items = []
-        for k, val in self._actual_values.items():
-            items.append(f'{k}={val}')
-
+        items = [f'{k}={val}' for k, val in self._actual_values.items()]
         ans: List[bytes] = []
         w = ans.append
         w(b'\033_G')
@@ -498,15 +486,13 @@ class ImageManager:
             return
         if not self.transmission_status.get(image_id):
             self.transmission_status[image_id] = payload
-        else:
-            in_flight = self.placements_in_flight[image_id]
-            if in_flight:
-                pl = in_flight.popleft()
-                if payload.startswith('ENOENT:'):
-                    with suppress(Exception):
-                        self.resend_image(image_id, pl)
-                if not in_flight:
-                    self.placements_in_flight.pop(image_id, None)
+        elif in_flight := self.placements_in_flight[image_id]:
+            pl = in_flight.popleft()
+            if payload.startswith('ENOENT:'):
+                with suppress(Exception):
+                    self.resend_image(image_id, pl)
+            if not in_flight:
+                self.placements_in_flight.pop(image_id, None)
 
     def resend_image(self, image_id: int, pl: Placement) -> None:
         if self.update_image_placement_for_resend is not None and not self.update_image_placement_for_resend(image_id, pl):

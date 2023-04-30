@@ -90,7 +90,7 @@ class Broadcast(Handler):
 
         ek = encode_key_event(key_event)
         ek = standard_b64encode(ek.encode('utf-8')).decode('ascii')
-        self.write_broadcast_data('kitty-key:' + ek)
+        self.write_broadcast_data(f'kitty-key:{ek}')
 
     def end_line(self) -> None:
         self.print('')

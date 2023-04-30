@@ -46,7 +46,9 @@ class GotoLayout(RemoteCommand):
                 try:
                     tab.goto_layout(payload_get('layout'), raise_exception=True)
                 except ValueError:
-                    raise UnknownLayout('The layout {} is unknown or disabled or the name is ambiguous'.format(payload_get('layout')))
+                    raise UnknownLayout(
+                        f"The layout {payload_get('layout')} is unknown or disabled or the name is ambiguous"
+                    )
         return None
 
 

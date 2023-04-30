@@ -25,12 +25,10 @@ def reduce_to_single_grapheme(text: str) -> str:
     limit = len(text)
     if limit < 2:
         return text
-    x = 1
-    while x < limit:
+    for x in range(1, limit):
         pos = truncate_point_for_length(text, x)
         if pos > 0:
             return text[:pos]
-        x += 1
     return text
 
 
@@ -52,12 +50,9 @@ def render_seconds(val: float) -> str:
     ans = str(timedelta(seconds=int(val)))
     if ',' in ans:
         days = int(ans.split(' ')[0])
-        if days > 99:
-            ans = '∞'
-        else:
-            ans = f'>{days} days'
+        ans = '∞' if days > 99 else f'>{days} days'
     elif len(ans) == 7:
-        ans = '0' + ans
+        ans = f'0{ans}'
     return ans.rjust(8)
 
 
@@ -90,13 +85,16 @@ def render_progress_in_width(
     sep, trail = unit_style.split('|')
     if is_complete or bytes_so_far >= total_bytes:
         ratio = human_size(total_bytes, sep=sep)
-        rate = human_size(int(safe_divide(total_bytes, secs_so_far)), sep=sep) + '/s'
+        rate = f'{human_size(int(safe_divide(total_bytes, secs_so_far)), sep=sep)}/s'
         eta = styled(render_seconds(secs_so_far), fg='green')
     else:
         tb = human_size(total_bytes, sep=' ', max_num_of_decimals=1)
         val = float(tb.split(' ', 1)[0])
-        ratio = format_number(val * safe_divide(bytes_so_far, total_bytes), max_num_of_decimals=1) + '/' + tb.replace(' ', sep)
-        rate = human_size(int(bytes_per_sec), sep=sep) + '/s'
+        ratio = (
+            f'{format_number(val * safe_divide(bytes_so_far, total_bytes), max_num_of_decimals=1)}/'
+            + tb.replace(' ', sep)
+        )
+        rate = f'{human_size(int(bytes_per_sec), sep=sep)}/s'
         bytes_left = total_bytes - bytes_so_far
         eta_seconds = safe_divide(bytes_left, bytes_per_sec)
         eta = render_seconds(eta_seconds)
@@ -107,8 +105,8 @@ def render_progress_in_width(
     w += wcswidth(lft)
     p = ljust(p, w)
     q = f'{ratio}{trail}{styled(" @ ", fg="yellow")}{rate}{trail}'
-    q = rjust(q, 25) + ' '
-    eta = ' ' + eta
+    q = f'{rjust(q, 25)} '
+    eta = f' {eta}'
     extra = width - w - wcswidth(q) - wcswidth(eta)
     if extra > 4:
         q += render_progress_bar(safe_divide(bytes_so_far, total_bytes), extra) + eta
@@ -121,8 +119,7 @@ def should_be_compressed(path: str) -> bool:
     ext = path.rpartition(os.extsep)[-1].lower()
     if ext in ('zip', 'odt', 'odp', 'pptx', 'docx', 'gz', 'bz2', 'xz', 'svgz'):
         return False
-    mt = guess_type(path) or ''
-    if mt:
+    if mt := guess_type(path) or '':
         if mt.endswith('+zip'):
             return False
         if mt.startswith('image/') and mt not in ('image/svg+xml',):
@@ -146,7 +143,11 @@ def cwd_path() -> str:
 
 
 def expand_home(path: str) -> str:
-    if path.startswith('~' + os.sep) or (os.altsep and path.startswith('~' + os.altsep)):
+    if (
+        path.startswith(f'~{os.sep}')
+        or os.altsep
+        and path.startswith(f'~{os.altsep}')
+    ):
         return os.path.join(home_path(), path[2:].lstrip(os.sep + (os.altsep or '')))
     return path
 

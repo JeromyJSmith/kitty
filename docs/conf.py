@@ -269,8 +269,7 @@ if you specify a program-to-run you can use the special placeholder
     from kittens.runner import get_kitten_cli_docs
 
     for kitten in all_kitten_names:
-        data = get_kitten_cli_docs(kitten)
-        if data:
+        if data := get_kitten_cli_docs(kitten):
             with open(f'generated/cli-kitten-{kitten}.rst', 'w') as f:
                 p = partial(print, file=f)
                 p('.. program::', 'kitty +kitten', kitten)
@@ -301,7 +300,7 @@ def write_remote_control_protocol_docs() -> None:  # {{{
             if m is None:
                 p(line)
             else:
-                fields.append((m.group(1).split('/')[0], m.group(2)))
+                fields.append((m[1].split('/')[0], m[2]))
         if fields:
             p('\nFields are:\n')
             for (name, desc) in fields:
@@ -416,9 +415,8 @@ shortcut_slugs: Dict[str, Tuple[str, str]] = {}
 
 def parse_opt_node(env: Any, sig: str, signode: Any) -> str:
     """Transform an option description into RST nodes."""
-    count = 0
     firstname = ''
-    for potential_option in sig.split(', '):
+    for count, potential_option in enumerate(sig.split(', ')):
         optname = potential_option.strip()
         if count:
             signode += addnodes.desc_addname(', ', ', ')
@@ -430,7 +428,6 @@ def parse_opt_node(env: Any, sig: str, signode: Any) -> str:
         else:
             signode['allnames'].append(optname)
             opt_aliases[optname] = firstname
-        count += 1
     if not firstname:
         raise ValueError(f'{sig} is not a valid opt')
     return firstname

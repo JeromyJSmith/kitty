@@ -88,7 +88,7 @@ def files_in(folder):
 
 def expand_dirs(items, exclude=lambda x: x.endswith('.so')):
     items = set(items)
-    dirs = set(x for x in items if os.path.isdir(x))
+    dirs = {x for x in items if os.path.isdir(x)}
     items.difference_update(dirs)
     for x in dirs:
         items.update({y for y in files_in(x) if not exclude(y)})
@@ -172,18 +172,14 @@ class Freeze(object):
             self.strip_files()
         if not self.skip_tests:
             self.run_tests()
-        # self.run_shell()
-
-        ret = self.makedmg(self.build_dir, f'{APPNAME}-{VERSION}')
-
-        return ret
+        return self.makedmg(self.build_dir, f'{APPNAME}-{VERSION}')
 
     @flush
     def add_ca_certs(self):
         print('\nDownloading CA certs...')
         from urllib.request import urlopen
         cdata = None
-        for i in range(5):
+        for _ in range(5):
             try:
                 cdata = urlopen(kitty_constants['cacerts_url']).read()
                 break
@@ -247,8 +243,7 @@ class Freeze(object):
         for dep, bname, is_id in self.get_local_dependencies(path_to_lib):
             ndep = f'{self.FID}/{bname}'
             self.change_dep(dep, ndep, is_id, path_to_lib)
-        ldeps = list(self.get_local_dependencies(path_to_lib))
-        if ldeps:
+        if ldeps := list(self.get_local_dependencies(path_to_lib)):
             print('\nFailed to fix dependencies in', path_to_lib)
             print('Remaining local dependencies:', ldeps)
             raise SystemExit(1)
@@ -417,9 +412,11 @@ class Freeze(object):
     def add_packages_from_dir(self, src):
         for x in os.listdir(src):
             x = join(src, x)
-            if os.path.isdir(x) and os.path.exists(join(x, '__init__.py')):
-                if self.filter_package(basename(x)):
-                    continue
+            if (
+                os.path.isdir(x)
+                and os.path.exists(join(x, '__init__.py'))
+                and not self.filter_package(basename(x))
+            ):
                 self.add_package_dir(x)
 
     @flush

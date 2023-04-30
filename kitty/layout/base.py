@@ -61,10 +61,7 @@ lgd = LayoutGlobalData()
 
 
 def idx_for_id(win_id: int, windows: Iterable[WindowType]) -> Optional[int]:
-    for i, w in enumerate(windows):
-        if w.id == win_id:
-            return i
-    return None
+    return next((i for i, w in enumerate(windows) if w.id == win_id), None)
 
 
 def set_layout_options(opts: Options) -> None:
@@ -130,10 +127,7 @@ def layout_dimension(
     for i, cells_per_window in enumerate(cells_map):
         before_dec, after_dec = decoration_pairs[i]
         pos += before_dec
-        if i == 0:
-            before_space = pos - start_at
-        else:
-            before_space = before_dec
+        before_space = pos - start_at if i == 0 else before_dec
         content_size = cells_per_window * cell_length
         if i == last_i:
             after_space = (start_at + length) - (pos + content_size)
@@ -187,9 +181,7 @@ def safe_increment_bias(old_val: float, increment: float) -> float:
 
 def normalize_biases(biases: List[float]) -> List[float]:
     s = sum(biases)
-    if s == 1.0:
-        return biases
-    return [x/s for x in biases]
+    return biases if s == 1.0 else [x/s for x in biases]
 
 
 def distribute_indexed_bias(base_bias: Sequence[float], index_bias_map: Dict[int, float]) -> Sequence[float]:
@@ -397,7 +389,6 @@ class Layout:
 
     def minimal_borders(self, windows: WindowList) -> Generator[BorderLine, None, None]:
         return
-        yield BorderLine()  # type: ignore
 
     def layout_action(self, action_name: str, args: Sequence[str], all_windows: WindowList) -> Optional[bool]:
         pass

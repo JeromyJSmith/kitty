@@ -162,7 +162,7 @@ class BaseTest(TestCase):
     def set_options(self, options=None):
         final_options = {'scrollback_pager_history_size': 1024, 'click_interval': 0.5}
         if options:
-            final_options.update(options)
+            final_options |= options
         options = Options(merge_result_dicts(defaults._asdict(), final_options))
         finalize_keys(options, {})
         finalize_mouse_mappings(options, {})
@@ -176,8 +176,7 @@ class BaseTest(TestCase):
     def create_screen(self, cols=5, lines=5, scrollback=5, cell_width=10, cell_height=20, options=None):
         self.set_options(options)
         c = Callbacks()
-        s = Screen(c, lines, cols, scrollback, cell_width, cell_height, 0, c)
-        return s
+        return Screen(c, lines, cols, scrollback, cell_width, cell_height, 0, c)
 
     def create_pty(
             self, argv=None, cols=80, lines=100, scrollback=100, cell_width=10, cell_height=20,
@@ -243,7 +242,7 @@ class PTY:
 
     def is_echo_on(self):
         s = termios.tcgetattr(self.master_fd)
-        return True if s[3] & termios.ECHO else False
+        return bool(s[3] & termios.ECHO)
 
     def __del__(self):
         if not self.is_child:
@@ -269,7 +268,7 @@ class PTY:
         while wd:
             try:
                 n = os.write(self.master_fd, self.write_buf)
-            except (BlockingIOError, OSError):
+            except OSError:
                 n = 0
             if not n:
                 break
@@ -279,7 +278,7 @@ class PTY:
         while rd:
             try:
                 data = os.read(self.master_fd, io.DEFAULT_BUFFER_SIZE)
-            except (BlockingIOError, OSError):
+            except OSError:
                 data = b''
             if not data:
                 break
@@ -307,8 +306,7 @@ class PTY:
     def screen_contents(self):
         lines = []
         for i in range(self.screen.lines):
-            x = str(self.screen.line(i))
-            if x:
+            if x := str(self.screen.line(i)):
                 lines.append(x)
         return '\n'.join(lines)
 

@@ -77,8 +77,7 @@ using this option means that you will not be notified of failures.
         }
 
     def response_from_kitty(self, boss: Boss, window: Optional[Window], payload_get: PayloadGetType) -> ResponseType:
-        windows = self.windows_for_match_payload(boss, window, payload_get)
-        if windows:
+        if windows := self.windows_for_match_payload(boss, window, payload_get):
             ac = payload_get('action')
             for os_window_id in {w.os_window_id for w in windows if w}:
                 if ac == 'resize':

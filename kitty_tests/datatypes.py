@@ -202,7 +202,7 @@ class TestDataTypes(BaseTest):
         l0.set_text(t, 0, len(t), C())
         self.ae(str(l0), t)
         l0.set_text('a', 0, 1, C())
-        self.assertEqual(str(l0), 'a' + t[1:])
+        self.assertEqual(str(l0), f'a{t[1:]}')
 
         c = C(3, 5)
         c.bold = c.italic = c.reverse = c.strikethrough = c.dim = True
@@ -235,10 +235,10 @@ class TestDataTypes(BaseTest):
         l3.right_shift(0, 0)
         self.ae(t, str(l3))
         l3.right_shift(0, 1)
-        self.ae(str(l3), '0' + t[:-1])
+        self.ae(str(l3), f'0{t[:-1]}')
         l3.set_text(t, 0, len(t), C())
         l3.left_shift(0, 2)
-        self.ae(str(l3), t[2:] + '89')
+        self.ae(str(l3), f'{t[2:]}89')
         l3.set_text(t, 0, len(t), C())
         l3.left_shift(7, 3)
         self.ae(str(l3), t)
@@ -267,10 +267,10 @@ class TestDataTypes(BaseTest):
         self.ae(l0.url_start_at(0), 0)
 
         for trail in '.,\\':
-            lx = create("http://xyz.com" + trail)
+            lx = create(f"http://xyz.com{trail}")
             self.ae(lx.url_end_at(0), len(lx) - 2)
         for trail in ')}]>':
-            lx = create("http://xyz.com" + trail)
+            lx = create(f"http://xyz.com{trail}")
             self.ae(lx.url_end_at(0), len(lx) - 1)
         l0 = create("ftp://abc/")
         self.ae(l0.url_end_at(0), len(l0) - 1)
@@ -286,6 +286,7 @@ class TestDataTypes(BaseTest):
                 self.ae(lf.url_start_at(i), len(lf))
             for i in range(n, len(lf)):
                 self.ae(lf.url_start_at(i), n)
+
         for i in range(7):
             for scheme in 'http https ftp file'.split():
                 lspace_test(i, scheme)
@@ -299,6 +300,7 @@ class TestDataTypes(BaseTest):
             lf = create(t)
             for s in range(len(lf)):
                 self.ae(lf.url_start_at(s), len(lf))
+
         no_url('https:// testing.me a')
         no_url('h ttp://acme.com')
         no_url('http: //acme.com')
@@ -308,7 +310,7 @@ class TestDataTypes(BaseTest):
         self.ae(l4.url_end_at(0), 0)
 
         for trail in '/-&':
-            l4 = create('http://a.b?q=1' + trail)
+            l4 = create(f'http://a.b?q=1{trail}')
             self.ae(l4.url_end_at(1), len(l4) - 1)
 
         l4 = create('http://a.b.')

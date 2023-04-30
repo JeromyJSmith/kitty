@@ -42,7 +42,12 @@ class Resize(Handler):
         if is_decrease:
             increment *= -1
         axis = 'reset' if reset else ('horizontal' if is_horizontal else 'vertical')
-        cmdline = [resize_window.name, '--self', f'--increment={increment}', '--axis=' + axis]
+        cmdline = [
+            resize_window.name,
+            '--self',
+            f'--increment={increment}',
+            f'--axis={axis}',
+        ]
         opts, items = parse_subcommand_cli(resize_window, cmdline)
         payload = resize_window.message_to_kitty(global_opts, opts, items)
         send = {'cmd': resize_window.name, 'version': version, 'payload': payload, 'no_response': False}
@@ -56,8 +61,7 @@ class Resize(Handler):
             self.print_on_fail = err
             self.quit_loop(1)
             return
-        res = response.get('data')
-        if res:
+        if res := response.get('data'):
             self.cmd.bell()
 
     def on_text(self, text: str, in_bracketed_paste: bool = False) -> None:

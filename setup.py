@@ -33,7 +33,7 @@ build_dir = 'build'
 constants = os.path.join('kitty', 'constants.py')
 with open(constants, 'rb') as f:
     constants = f.read().decode('utf-8')
-appname = re.search(r"^appname: str = '([^']+)'", constants, re.MULTILINE).group(1)  # type: ignore
+appname = re.search(r"^appname: str = '([^']+)'", constants, re.MULTILINE)[1]
 version = tuple(
     map(
         int,
@@ -167,24 +167,22 @@ def at_least_version(package: str, major: int, minor: int = 0) -> None:
 def cc_version() -> Tuple[List[str], Tuple[int, int]]:
     if 'CC' in os.environ:
         q = os.environ['CC']
+    elif not is_macos and shutil.which('gcc'):
+        q = 'gcc'
+    elif (
+        not is_macos
+        and not shutil.which('gcc')
+        and shutil.which('clang')
+        or is_macos
+    ):
+        q = 'clang'
     else:
-        if is_macos:
-            q = 'clang'
-        else:
-            if shutil.which('gcc'):
-                q = 'gcc'
-            elif shutil.which('clang'):
-                q = 'clang'
-            else:
-                q = 'cc'
+        q = 'cc'
     cc = shlex.split(q)
     raw = subprocess.check_output(cc + ['-dumpversion']).decode('utf-8')
     ver_ = raw.strip().split('.')[:2]
     try:
-        if len(ver_) == 1:
-            ver = int(ver_[0]), 0
-        else:
-            ver = int(ver_[0]), int(ver_[1])
+        ver = (int(ver_[0]), 0) if len(ver_) == 1 else (int(ver_[0]), int(ver_[1]))
     except Exception:
         ver = (0, 0)
     return cc, ver
@@ -207,8 +205,7 @@ def get_python_flags(cflags: List[str], for_main_executable: bool = False) -> Li
     libs: List[str] = []
     libs += (sysconfig.get_config_var('LIBS') or '').split()
     libs += (sysconfig.get_config_var('SYSLIBS') or '').split()
-    fw = sysconfig.get_config_var('PYTHONFRAMEWORK')
-    if fw:
+    if fw := sysconfig.get_config_var('PYTHONFRAMEWORK'):
         for var in 'data include stdlib'.split():
             val = sysconfig.get_path(var)
             if val and f'/{fw}.framework' in val:
@@ -220,15 +217,12 @@ def get_python_flags(cflags: List[str], for_main_executable: bool = False) -> Li
                     break
         else:
             raise SystemExit('Failed to find Python framework')
-        ldlib = sysconfig.get_config_var('LDLIBRARY')
-        if ldlib:
+        if ldlib := sysconfig.get_config_var('LDLIBRARY'):
             libs.append(os.path.join(framework_dir, ldlib))
     else:
-        ldlib = sysconfig.get_config_var('LIBDIR')
-        if ldlib:
+        if ldlib := sysconfig.get_config_var('LIBDIR'):
             libs += [f'-L{ldlib}']
-        ldlib = sysconfig.get_config_var('VERSION')
-        if ldlib:
+        if ldlib := sysconfig.get_config_var('VERSION'):
             libs += [f'-lpython{ldlib}{sys.abiflags}']
         lval = sysconfig.get_config_var('LINKFORSHARED') or ''
         if not for_main_executable:
@@ -272,10 +266,16 @@ def test_compile(
 
 
 def first_successful_compile(cc: List[str], *cflags: str, src: str = '', source_ext: str = 'c') -> str:
-    for x in cflags:
-        if test_compile(cc, *shlex.split(x), src=src, source_ext=source_ext):
-            return x
-    return ''
+    return next(
+        (
+            x
+            for x in cflags
+            if test_compile(
+                cc, *shlex.split(x), src=src, source_ext=source_ext
+            )
+        ),
+        '',
+    )
 
 
 def set_arches(flags: List[str], arches: Iterable[str] = ('x86_64', 'arm64')) -> None:
@@ -442,7 +442,7 @@ def kitty_env() -> Env:
     cppflags = ans.cppflags
     cppflags.append(f'-DPRIMARY_VERSION={version[0] + 4000}')
     cppflags.append(f'-DSECONDARY_VERSION={version[1]}')
-    cppflags.append('-DXT_VERSION="{}"'.format('.'.join(map(str, version))))
+    cppflags.append(f"""-DXT_VERSION="{'.'.join(map(str, version))}\"""")
     at_least_version('harfbuzz', 1, 5)
     cflags.extend(pkg_config('libpng', '--cflags-only-I'))
     cflags.extend(pkg_config('lcms2', '--cflags-only-I'))
@@ -453,9 +453,12 @@ def kitty_env() -> Env:
         ]
         test_program_src = '''#include <UserNotifications/UserNotifications.h>
         int main(void) { return 0; }\n'''
-        user_notifications_framework = first_successful_compile(
-            ans.cc, '-framework UserNotifications', src=test_program_src, source_ext='m')
-        if user_notifications_framework:
+        if user_notifications_framework := first_successful_compile(
+            ans.cc,
+            '-framework UserNotifications',
+            src=test_program_src,
+            source_ext='m',
+        ):
             platform_libs.extend(shlex.split(user_notifications_framework))
         else:
             cppflags.append('-DKITTY_USE_DEPRECATED_MACOS_NOTIFICATION_API')
@@ -511,14 +514,10 @@ def get_vcs_rev() -> str:
             rev = subprocess.check_output(['git', 'rev-parse', 'HEAD']).decode('utf-8')
         except FileNotFoundError:
             try:
-                with open('.git/refs/heads/master') as f:
-                    rev = f.read()
+                rev = Path('.git/refs/heads/master').read_text()
             except NotADirectoryError:
-                with open('.git') as f:
-                    gitloc = f.read()
-                with open(os.path.join(gitloc, 'refs/heads/master')) as f:
-                    rev = f.read()
-
+                gitloc = Path('.git').read_text()
+                rev = Path(os.path.join(gitloc, 'refs/heads/master')).read_text()
         ans = rev.strip()
     return ans
 
@@ -551,8 +550,7 @@ def newer(dest: str, *sources: str) -> bool:
 def dependecies_for(src: str, obj: str, all_headers: Iterable[str]) -> Iterable[str]:
     dep_file = obj.rpartition('.')[0] + '.d'
     try:
-        with open(dep_file) as f:
-            deps = f.read()
+        deps = Path(dep_file).read_text()
     except FileNotFoundError:
         yield src
         yield from iter(all_headers)
@@ -647,9 +645,7 @@ class CompilationDatabase:
     def build_all(self) -> None:
 
         def sort_key(compile_cmd: Command) -> int:
-            if compile_cmd.keyfile:
-                return os.path.getsize(compile_cmd.keyfile)
-            return 0
+            return os.path.getsize(compile_cmd.keyfile) if compile_cmd.keyfile else 0
 
         items = []
         for compile_cmd in self.compile_commands:
@@ -666,7 +662,7 @@ class CompilationDatabase:
 
     def cmd_changed(self, compile_cmd: Command) -> bool:
         key, cmd = compile_cmd.key, compile_cmd.cmd
-        return bool(self.db.get(key) != cmd)
+        return self.db.get(key) != cmd
 
     def __enter__(self) -> 'CompilationDatabase':
         self.all_keys: Set[CompileKey] = set()
@@ -820,7 +816,7 @@ def compile_kittens(compilation_database: CompilationDatabase) -> None:
     ):
         final_env = kenv.copy()
         final_env.cflags.extend(f'-I{x}' for x in includes)
-        final_env.ldpaths[:0] = list(f'-l{x}' for x in libraries)
+        final_env.ldpaths[:0] = [f'-l{x}' for x in libraries]
         compile_c_extension(
             final_env, dest, compilation_database, sources, all_headers + ['kitty/data-types.h'])
 
@@ -949,7 +945,7 @@ def build_static_kittens(
     if args.build_universal_binary and not for_platform:
         outs = []
         for arch in ('amd64', 'arm64'):
-            d = dest + f'-{arch}'
+            d = f'{dest}-{arch}'
             run_one(d, GOOS='darwin', GOARCH=arch)
             outs.append(d)
         subprocess.check_call(['lipo', '-create', '-output', dest] + outs)
@@ -992,14 +988,18 @@ def build_launcher(args: Options, launcher_dir: str = '.', bundle_type: str = 's
         cflags.append('-g3' if args.debug else '-O3')
     if bundle_type.endswith('-freeze'):
         cppflags.append('-DFOR_BUNDLE')
-        cppflags.append(f'-DPYVER="{sysconfig.get_python_version()}"')
-        cppflags.append(f'-DKITTY_LIB_DIR_NAME="{args.libdir_name}"')
+        cppflags.extend(
+            (
+                f'-DPYVER="{sysconfig.get_python_version()}"',
+                f'-DKITTY_LIB_DIR_NAME="{args.libdir_name}"',
+            )
+        )
     elif bundle_type == 'source':
         cppflags.append('-DFROM_SOURCE')
     if bundle_type.startswith('macos-'):
         klp = '../Resources/kitty'
     elif bundle_type.startswith('linux-'):
-        klp = '../{}/kitty'.format(args.libdir_name.strip('/'))
+        klp = f"../{args.libdir_name.strip('/')}/kitty"
     elif bundle_type == 'source':
         klp = os.path.relpath('.', launcher_dir)
     else:
@@ -1085,10 +1085,8 @@ def compile_python(base_path: str) -> None:
     exclude = re.compile('.*/shell-integration/ssh/bootstrap.py')
 
     def c(base_path: str, **kw: object) -> None:
-        try:
+        with suppress(AttributeError):
             kw['invalidation_mode'] = py_compile.PycInvalidationMode.UNCHECKED_HASH
-        except AttributeError:
-            pass
         compileall.compile_dir(base_path, **kw)  # type: ignore
 
     for optimize in (0, 1, 2):
@@ -1467,9 +1465,7 @@ def package(args: Options, bundle_type: str) -> None:
         if path.endswith('.so'):
             return True
         q = path.split(os.sep)[-2:]
-        if len(q) == 2 and q[0] == 'ssh' and q[1] in ('kitty', 'kitten'):
-            return True
-        return False
+        return len(q) == 2 and q[0] == 'ssh' and q[1] in ('kitty', 'kitten')
 
     for root, dirs, files in os.walk(libdir):
         for f_ in files:

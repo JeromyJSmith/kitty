@@ -98,10 +98,10 @@ class Parser:
         ans['bell_path'] = config_or_absolute_path(val)
 
     def bold_font(self, val: str, ans: typing.Dict[str, typing.Any]) -> None:
-        ans['bold_font'] = str(val)
+        ans['bold_font'] = val
 
     def bold_italic_font(self, val: str, ans: typing.Dict[str, typing.Any]) -> None:
-        ans['bold_italic_font'] = str(val)
+        ans['bold_italic_font'] = val
 
     def box_drawing_scale(self, val: str, ans: typing.Dict[str, typing.Any]) -> None:
         ans['box_drawing_scale'] = box_drawing_scale(val)
@@ -949,7 +949,7 @@ class Parser:
         ans['dynamic_background_opacity'] = to_bool(val)
 
     def editor(self, val: str, ans: typing.Dict[str, typing.Any]) -> None:
-        ans['editor'] = str(val)
+        ans['editor'] = val
 
     def enable_audio_bell(self, val: str, ans: typing.Dict[str, typing.Any]) -> None:
         ans['enable_audio_bell'] = to_bool(val)
@@ -966,13 +966,13 @@ class Parser:
             ans["exe_search_path"][k] = v
 
     def file_transfer_confirmation_bypass(self, val: str, ans: typing.Dict[str, typing.Any]) -> None:
-        ans['file_transfer_confirmation_bypass'] = str(val)
+        ans['file_transfer_confirmation_bypass'] = val
 
     def focus_follows_mouse(self, val: str, ans: typing.Dict[str, typing.Any]) -> None:
         ans['focus_follows_mouse'] = to_bool(val)
 
     def font_family(self, val: str, ans: typing.Dict[str, typing.Any]) -> None:
-        ans['font_family'] = str(val)
+        ans['font_family'] = val
 
     def font_features(self, val: str, ans: typing.Dict[str, typing.Any]) -> None:
         for k, v in font_features(val):
@@ -1015,7 +1015,7 @@ class Parser:
         ans['input_delay'] = positive_int(val)
 
     def italic_font(self, val: str, ans: typing.Dict[str, typing.Any]) -> None:
-        ans['italic_font'] = str(val)
+        ans['italic_font'] = val
 
     def kitten_alias(self, val: str, ans: typing.Dict[str, typing.Any]) -> None:
         for k, v in action_alias(val):
@@ -1025,7 +1025,7 @@ class Parser:
         ans['kitty_mod'] = to_modifiers(val)
 
     def linux_bell_theme(self, val: str, ans: typing.Dict[str, typing.Any]) -> None:
-        ans['linux_bell_theme'] = str(val)
+        ans['linux_bell_theme'] = val
 
     def linux_display_server(self, val: str, ans: typing.Dict[str, typing.Any]) -> None:
         val = val.lower()
@@ -1036,7 +1036,7 @@ class Parser:
     choices_for_linux_display_server = frozenset(('auto', 'wayland', 'x11'))
 
     def listen_on(self, val: str, ans: typing.Dict[str, typing.Any]) -> None:
-        ans['listen_on'] = str(val)
+        ans['listen_on'] = val
 
     def macos_colorspace(self, val: str, ans: typing.Dict[str, typing.Any]) -> None:
         val = val.lower()
@@ -1172,10 +1172,10 @@ class Parser:
         ans['scrollback_pager_history_size'] = scrollback_pager_history_size(val)
 
     def select_by_word_characters(self, val: str, ans: typing.Dict[str, typing.Any]) -> None:
-        ans['select_by_word_characters'] = str(val)
+        ans['select_by_word_characters'] = val
 
     def select_by_word_characters_forward(self, val: str, ans: typing.Dict[str, typing.Any]) -> None:
-        ans['select_by_word_characters_forward'] = str(val)
+        ans['select_by_word_characters_forward'] = val
 
     def selection_background(self, val: str, ans: typing.Dict[str, typing.Any]) -> None:
         ans['selection_background'] = to_color_or_none(val)
@@ -1184,7 +1184,7 @@ class Parser:
         ans['selection_foreground'] = to_color_or_none(val)
 
     def shell(self, val: str, ans: typing.Dict[str, typing.Any]) -> None:
-        ans['shell'] = str(val)
+        ans['shell'] = val
 
     def shell_integration(self, val: str, ans: typing.Dict[str, typing.Any]) -> None:
         ans['shell_integration'] = shell_integration(val)
@@ -1279,10 +1279,10 @@ class Parser:
         ans['tab_title_template'] = tab_title_template(val)
 
     def term(self, val: str, ans: typing.Dict[str, typing.Any]) -> None:
-        ans['term'] = str(val)
+        ans['term'] = val
 
     def text_composition_strategy(self, val: str, ans: typing.Dict[str, typing.Any]) -> None:
-        ans['text_composition_strategy'] = str(val)
+        ans['text_composition_strategy'] = val
 
     def touch_scroll_multiplier(self, val: str, ans: typing.Dict[str, typing.Any]) -> None:
         ans['touch_scroll_multiplier'] = float(val)

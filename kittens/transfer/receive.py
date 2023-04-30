@@ -89,8 +89,7 @@ class File:
             return 0
         if self.ftype is FileType.regular:
             if self.actual_file is None:
-                parent = os.path.dirname(self.expanded_local_path)
-                if parent:
+                if parent := os.path.dirname(self.expanded_local_path):
                     os.makedirs(parent, exist_ok=True)
                 self.actual_file = PatchFile(self.expanded_local_path) if self.expect_diff else open(self.expanded_local_path, 'wb')
             base = self.actual_file.tell()
@@ -167,7 +166,7 @@ def files_for_receive(cli_opts: TransferCLIOptions, dest: str, files: List[File]
         except ValueError:
             common_path = ''
         home = remote_home.rstrip('/')
-        if common_path and common_path.startswith(home + '/'):
+        if common_path and common_path.startswith(f'{home}/'):
             spec_paths = [posixpath.join('~', posixpath.relpath(x, home)) for x in spec_paths]
         for spec_id, files_for_spec in spec_map.items():
             spec = spec_paths[spec_id]
@@ -177,7 +176,7 @@ def files_for_receive(cli_opts: TransferCLIOptions, dest: str, files: List[File]
     else:
         number_of_source_files = sum(map(len, spec_map.values()))
         dest_is_dir = dest[-1] in (os.sep, os.altsep) or number_of_source_files > 1 or os.path.isdir(dest)
-        for spec_id, files_for_spec in spec_map.items():
+        for files_for_spec in spec_map.values():
             if dest_is_dir:
                 dest_path = os.path.join(dest, posixpath.basename(files_for_spec[0].remote_path))
                 tree = make_tree(files_for_spec, os.path.dirname(expand_home(dest_path)))
@@ -331,13 +330,12 @@ class Manager:
 
     def on_file_transfer_response(self, ftc: FileTransmissionCommand) -> str:
         if self.state is State.waiting_for_permission:
-            if ftc.action is Action.status:
-                if ftc.status == 'OK':
-                    self.state = State.waiting_for_file_metadata
-                else:
-                    return 'Permission for transfer denied'
-            else:
+            if ftc.action is not Action.status:
                 return f'Unexpected response from terminal: {ftc}'
+            if ftc.status == 'OK':
+                self.state = State.waiting_for_file_metadata
+            else:
+                return 'Permission for transfer denied'
         elif self.state is State.waiting_for_file_metadata:
             if ftc.action is Action.status:
                 if ftc.file_id:
@@ -348,13 +346,12 @@ class Manager:
                     if fid < 0 or fid >= len(self.spec):
                         return f'Unexpected response from terminal: {ftc}'
                     self.failed_specs[fid] = ftc.status
+                elif ftc.status == 'OK':
+                    self.state = State.transferring
+                    self.remote_home = ftc.name
+                    return ''
                 else:
-                    if ftc.status == 'OK':
-                        self.state = State.transferring
-                        self.remote_home = ftc.name
-                        return ''
-                    else:
-                        return ftc.status
+                    return ftc.status
             elif ftc.action is Action.file:
                 try:
                     fid = int(ftc.file_id)
@@ -422,8 +419,7 @@ class Receive(Handler):
         if self.quit_after_write_code is not None or self.manager.state is State.canceled:
             return
         transfer_started = self.manager.state is State.transferring
-        err = self.manager.on_file_transfer_response(ftc)
-        if err:
+        if err := self.manager.on_file_transfer_response(ftc):
             self.print_err(err)
             self.print('Waiting to ensure terminal cancels transfer, will quit in a few seconds')
             self.abort_transfer()
@@ -642,12 +638,12 @@ class Receive(Handler):
 def receive_main(cli_opts: TransferCLIOptions, args: List[str]) -> None:
     dest = ''
     if cli_opts.mode == 'mirror':
-        if len(args) < 1:
+        if not args:
             raise SystemExit('Must specify at least one file to transfer')
         spec = list(args)
+    elif len(args) < 2:
+        raise SystemExit('Must specify at least one source and a destination file to transfer')
     else:
-        if len(args) < 2:
-            raise SystemExit('Must specify at least one source and a destination file to transfer')
         spec, dest = args[:-1], args[-1]
 
     loop = Loop()

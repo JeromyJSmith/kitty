@@ -146,10 +146,7 @@ def parse_session(raw: str, opts: Options, environ: Optional[Mapping[str, str]] 
         line = line.strip()
         if line and not line.startswith('#'):
             parts = line.split(maxsplit=1)
-            if len(parts) == 1:
-                cmd, rest = parts[0], ''
-            else:
-                cmd, rest = parts
+            cmd, rest = (parts[0], '') if len(parts) == 1 else parts
             cmd, rest = cmd.strip(), rest.strip()
             if cmd != 'launch':
                 rest = expand(rest)
@@ -210,7 +207,7 @@ def create_sessions(
         else:
             environ: Optional[Mapping[str, str]] = None
             if isinstance(args.session, PreReadSession):
-                session_data = '' + str(args.session)
+                session_data = f'{str(args.session)}'
                 environ = args.session.associated_environ  # type: ignore
             else:
                 if args.session == '-':

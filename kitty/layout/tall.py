@@ -30,8 +30,6 @@ def neighbors_for_tall_window(
     ans: NeighborsMap = {'left': [], 'right': [], 'top': [], 'bottom': []}
     main_before: EdgeLiteral = 'left' if main_is_horizontal else 'top'
     main_after: EdgeLiteral = 'right' if main_is_horizontal else 'bottom'
-    cross_before: EdgeLiteral = 'top' if main_is_horizontal else 'left'
-    cross_after: EdgeLiteral = 'bottom' if main_is_horizontal else 'right'
     if mirrored:
         main_before, main_after = main_after, main_before
     if prev is not None:
@@ -44,8 +42,10 @@ def neighbors_for_tall_window(
     else:
         ans[main_before] = [groups[num_full_size_windows - 1].id]
         if idx > num_full_size_windows and prev is not None:
+            cross_before: EdgeLiteral = 'top' if main_is_horizontal else 'left'
             ans[cross_before] = [prev.id]
         if nxt is not None:
+            cross_after: EdgeLiteral = 'bottom' if main_is_horizontal else 'right'
             ans[cross_after] = [nxt.id]
     return ans
 
@@ -205,7 +205,7 @@ class Tall(Layout):
                 self.layout_opts.full_size -= 1
                 self.main_bias = list(self.layout_opts.build_bias_list())
                 return True
-        if action_name == 'mirror':
+        elif action_name == 'mirror':
             action = (args or ('toggle',))[0]
             ok = False
             if action == 'toggle':
@@ -300,10 +300,13 @@ class Tall(Layout):
                         xl.content_pos + xl.content_size + xl.space_after,
                         yl.content_pos + ((yl.content_size + yl.space_after) if mirrored else (bw - yl.space_before)),
                     )
-                perp_borders.append(BorderLine(e1, color))
-                perp_borders.append(BorderLine(e2, color))
-                perp_borders.append(BorderLine(e3, color))
-
+                perp_borders.extend(
+                    (
+                        BorderLine(e1, color),
+                        BorderLine(e2, color),
+                        BorderLine(e3, color),
+                    )
+                )
         mirrored = self.layout_opts.mirrored
         yield from borders(
             main_layouts, self.main_is_horizontal, all_windows,

@@ -89,9 +89,6 @@ def guess_type(path: str, allow_filesystem_access: bool = False) -> Optional[str
         mt = f'text/{mt.split("/", 1)[-1]}'
     if not mt and is_rc_file(path):
         mt = 'text/plain'
-    if not mt:
-        if is_dir:
-            mt = 'inode/directory'  # type: ignore
-        elif is_exe:
-            mt = 'inode/executable'
+    if not mt and is_exe:
+        mt = 'inode/executable'
     return mt

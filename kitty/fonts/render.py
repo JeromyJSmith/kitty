@@ -91,10 +91,9 @@ def merge_ranges(
         if b_end > a_end:
             after_range = ((a_end + 1, b_end), b_val)
             after_range_prio = b_prio
-    else:
-        if a_end > b_end:
-            after_range = ((b_end + 1, a_end), a_val)
-            after_range_prio = a_prio
+    elif a_end > b_end:
+        after_range = ((b_end + 1, a_end), a_val)
+        after_range_prio = a_prio
     # check if the before, mid and after ranges can be coalesced
     ranges: List[Tuple[Tuple[int, int], _T]] = []
     priorities: List[int] = []
@@ -152,8 +151,7 @@ def create_symbol_map(opts: Options) -> Tuple[Tuple[int, int, int], ...]:
             family_map[family] = count
             count += 1
             current_faces.append((font, bold, italic))
-    sm = tuple((a, b, family_map[f]) for (a, b), f in val.items())
-    return sm
+    return tuple((a, b, family_map[f]) for (a, b), f in val.items())
 
 
 def create_narrow_symbols(opts: Options) -> Tuple[Tuple[int, int, int], ...]:
@@ -200,10 +198,11 @@ def set_font_family(opts: Optional[Options] = None, override_font_size: Optional
     sm = create_symbol_map(opts)
     ns = create_narrow_symbols(opts)
     num_symbol_fonts = len(current_faces) - before
-    font_features = {}
-    for face, _, _ in current_faces:
-        font_features[face['postscript_name']] = find_font_features(face['postscript_name'])
-    font_features.update(opts.font_features)
+    font_features = {
+        face['postscript_name']: find_font_features(face['postscript_name'])
+        for face, _, _ in current_faces
+    }
+    font_features |= opts.font_features
     if debug_font_matching:
         dump_faces(ftypes, indices)
     set_font_data(
@@ -213,10 +212,7 @@ def set_font_family(opts: Optional[Options] = None, override_font_size: Optional
     )
 
 
-if TYPE_CHECKING:
-    CBufType = ctypes.Array[ctypes.c_ubyte]
-else:
-    CBufType = None
+CBufType = ctypes.Array[ctypes.c_ubyte] if TYPE_CHECKING else None
 UnderlineCallback = Callable[[CBufType, int, int, int, int], None]
 
 
@@ -519,7 +515,7 @@ def test_render_string(
     cf = current_fonts()
     fonts = [cf['medium'].display_name()]
     fonts.extend(f.display_name() for f in cf['fallback'])
-    msg = 'Rendered string {} below, with fonts: {}\n'.format(text, ', '.join(fonts))
+    msg = f"Rendered string {text} below, with fonts: {', '.join(fonts)}\n"
     try:
         print(msg)
     except UnicodeEncodeError:
@@ -530,10 +526,7 @@ def test_render_string(
 
 def test_fallback_font(qtext: Optional[str] = None, bold: bool = False, italic: bool = False) -> None:
     with setup_for_testing():
-        if qtext:
-            trials = [qtext]
-        else:
-            trials = ['你', 'He\u0347\u0305', '\U0001F929']
+        trials = [qtext] if qtext else ['你', 'He\u0347\u0305', '\U0001F929']
         for text in trials:
             f = get_fallback_font(text, bold, italic)
             try:

@@ -319,7 +319,7 @@ def parse_launch_args(args: Optional[Sequence[str]] = None) -> LaunchSpec:
 def get_env(opts: LaunchCLIOptions, active_child: Optional[Child] = None) -> Dict[str, str]:
     env: Dict[str, str] = {}
     if opts.copy_env and active_child:
-        env.update(active_child.foreground_environ)
+        env |= active_child.foreground_environ
     for x in opts.env:
         for k, v in parse_env(x, env):
             env[k] = v

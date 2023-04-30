@@ -69,8 +69,8 @@ def screen_restore_modes() -> None:
 
 
 def screen_designate_charset(which: int, to: int) -> None:
-    w = '()'[int(which)]
-    t = chr(int(to))
+    w = '()'[which]
+    t = chr(to)
     write(f'\x1b{w}{t}')
 
 

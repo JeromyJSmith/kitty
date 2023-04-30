@@ -43,8 +43,7 @@ def all_fonts_map() -> FontMap:
 
 def list_fonts() -> Generator[ListedFont, None, None]:
     for fd in coretext_all_fonts():
-        f = fd['family']
-        if f:
+        if f := fd['family']:
             fn = f'{f} {fd.get("style", "")}'.strip()
             is_mono = bool(fd['monospace'])
             yield {'family': f, 'full_name': fn, 'postscript_name': fd['postscript_name'] or '', 'is_monospace': is_mono}

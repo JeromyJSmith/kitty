@@ -85,11 +85,11 @@ class LoadSignature(StreamingJob):
         super().__init__(job, output_buf_size=0)
 
     def add_chunk(self, chunk: bytes) -> None:
-        for ignored in self(chunk):
+        for _ in self(chunk):
             pass
 
     def commit(self) -> None:
-        for ignored in self.get_remaining_output():
+        for _ in self.get_remaining_output():
             pass
         build_hash_table(self.signature)
 
@@ -126,16 +126,17 @@ class PatchFile(StreamingJob):
         return self.src_file.readinto(b)
 
     def close(self) -> None:
-        if not self.src_file.closed:
-            self.get_remaining_output()
-            self.src_file.close()
-            count = 100
-            while not self.finished and count > 0:
-                self()
-                count -= 1
-            self.dest_file.close()
-            if self.overwrite_src:
-                os.replace(self.dest_file.name, self.src_file.name)
+        if self.src_file.closed:
+            return
+        self.get_remaining_output()
+        self.src_file.close()
+        count = 100
+        while not self.finished and count > 0:
+            self()
+            count -= 1
+        self.dest_file.close()
+        if self.overwrite_src:
+            os.replace(self.dest_file.name, self.src_file.name)
 
     def write(self, data: bytes) -> None:
         for output in self(data):

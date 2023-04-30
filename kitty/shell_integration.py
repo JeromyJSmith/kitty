@@ -33,10 +33,10 @@ def is_new_zsh_install(env: Dict[str, str], zdotdir: Optional[str]) -> bool:
         assert isinstance(zdotdir, str)
         if zdotdir == '~':
             return True
-    for q in ('.zshrc', '.zshenv', '.zprofile', '.zlogin'):
-        if os.path.exists(os.path.join(zdotdir, q)):
-            return False
-    return True
+    return not any(
+        os.path.exists(os.path.join(zdotdir, q))
+        for q in ('.zshrc', '.zshenv', '.zprofile', '.zlogin')
+    )
 
 
 def get_zsh_zdotdir_from_global_zshenv(env: Dict[str, str], argv: List[str]) -> Optional[str]:
@@ -49,14 +49,13 @@ def get_zsh_zdotdir_from_global_zshenv(env: Dict[str, str], argv: List[str]) -> 
 def setup_zsh_env(env: Dict[str, str], argv: List[str]) -> None:
     zdotdir = env.get('ZDOTDIR')
     if is_new_zsh_install(env, zdotdir):
-        if zdotdir is None:
-            # Try to get ZDOTDIR from /etc/zshenv, when all startup files are not present
-            zdotdir = get_zsh_zdotdir_from_global_zshenv(env, argv)
-            if zdotdir is None or is_new_zsh_install(env, zdotdir):
-                return
-        else:
+        if zdotdir is not None:
             # dont prevent zsh-newuser-install from running
             # zsh-newuser-install never runs as root but we assume that it does
+            return
+        # Try to get ZDOTDIR from /etc/zshenv, when all startup files are not present
+        zdotdir = get_zsh_zdotdir_from_global_zshenv(env, argv)
+        if zdotdir is None or is_new_zsh_install(env, zdotdir):
             return
     if zdotdir is not None:
         env['KITTY_ORIG_ZDOTDIR'] = zdotdir
@@ -87,8 +86,7 @@ def setup_bash_env(env: Dict[str, str], argv: List[str]) -> None:
             expecting_option_arg = False
             continue
         if arg in ('-', '--'):
-            if not expecting_file_arg:
-                expecting_file_arg = True
+            expecting_file_arg = True
             continue
         elif len(arg) > 1 and arg[1] != '-' and (arg[0] == '-' or arg.startswith('+O')):
             expecting_multi_chars_opt = False
@@ -157,16 +155,18 @@ def as_fish_str_literal(x: str) -> str:
 
 
 def posix_serialize_env(env: Dict[str, str], prefix: str = 'builtin export', sep: str = '=') -> str:
-    ans = []
-    for k, v in env.items():
-        ans.append(f'{prefix} {as_str_literal(k)}{sep}{as_str_literal(v)}')
+    ans = [
+        f'{prefix} {as_str_literal(k)}{sep}{as_str_literal(v)}'
+        for k, v in env.items()
+    ]
     return '\n'.join(ans)
 
 
 def fish_serialize_env(env: Dict[str, str]) -> str:
-    ans = []
-    for k, v in env.items():
-        ans.append(f'set -gx {as_fish_str_literal(k)} {as_fish_str_literal(v)}')
+    ans = [
+        f'set -gx {as_fish_str_literal(k)} {as_fish_str_literal(v)}'
+        for k, v in env.items()
+    ]
     return '\n'.join(ans)
 
 
@@ -199,10 +199,10 @@ def shell_integration_allows_rc_modification(opts: Options) -> bool:
 def serialize_env(path: str, env: Dict[str, str]) -> str:
     if not env:
         return ''
-    name = get_supported_shell_name(path)
-    if not name:
+    if name := get_supported_shell_name(path):
+        return ENV_SERIALIZERS[name](env)
+    else:
         raise ValueError(f'{path} is not a supported shell')
-    return ENV_SERIALIZERS[name](env)
 
 
 def get_effective_ksi_env_var(opts: Optional[Options] = None) -> str:

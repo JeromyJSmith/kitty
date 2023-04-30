@@ -77,9 +77,7 @@ def read_bypass(loc: str) -> str:
             loc = os.path.expanduser(loc)
         with open(loc, 'rb') as f:
             return f.read().decode('utf-8')
-    if loc == '-':
-        return sys.stdin.read()
-    return loc
+    return sys.stdin.read() if loc == '-' else loc
 
 
 def main(args: List[str]) -> None:

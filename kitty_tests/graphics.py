@@ -28,7 +28,7 @@ def send_command(screen, cmd, payload=b''):
         if isinstance(payload, str):
             payload = payload.encode('utf-8')
         payload = standard_b64encode(payload).decode('ascii')
-        cmd += ';' + payload
+        cmd += f';{payload}'
     cmd += '\033\\'
     c = screen.callbacks
     c.clear()
@@ -156,7 +156,7 @@ def put_helpers(self, cw, ch, cols=10, lines=5):
         for side in 'left top right bottom'.split():
             a, b = r[side], locals()[side]
             if abs(a - b) > 0.0001:
-                self.ae(a, b, 'the %s side is not equal' % side)
+                self.ae(a, b, f'the {side} side is not equal')
 
     s, dx, dy = create_screen()
     return s, dx, dy, put_image, put_ref, layers, rect_eq
@@ -461,7 +461,7 @@ class TestGraphics(BaseTest):
         # test put with number
         def put(**kw):
             cmd = ','.join(f'{k}={v}' for k, v in kw.items())
-            cmd = 'a=p,' + cmd
+            cmd = f'a=p,{cmd}'
             return parse_response_with_ids(send_command(s, cmd))
 
         code, idstr = put(c=2, r=2, I=93)
@@ -746,10 +746,10 @@ class TestGraphics(BaseTest):
         s, dx, dy, put_image, put_ref, layers, rect_eq = put_helpers(self, cw, ch)
         put_image(s, 10, 20, no_id=True)  # a one cell image at (0, 0)
         self.ae(len(layers(s)), 1)
-        for i in range(s.lines):
+        for _ in range(s.lines):
             s.index()
         self.ae(len(layers(s)), 0), self.ae(s.grman.image_count, 1)
-        for i in range(s.historybuf.ynum - 1):
+        for _ in range(s.historybuf.ynum - 1):
             s.index()
             self.ae(len(layers(s)), 0), self.ae(s.grman.image_count, 1)
         s.index()
@@ -759,15 +759,15 @@ class TestGraphics(BaseTest):
         s.reset()
         # Test images outside page area untouched
         put_image(s, cw, ch)  # a one cell image at (0, 0)
-        for i in range(s.lines - 1):
+        for _ in range(s.lines - 1):
             s.index()
         put_image(s, cw, ch)  # a one cell image at (0, bottom)
         s.set_margins(2, 4)  # 1-based indexing
         self.ae(s.grman.image_count, 2)
-        for i in range(s.lines + s.historybuf.ynum):
+        for _ in range(s.lines + s.historybuf.ynum):
             s.index()
             self.ae(s.grman.image_count, 2)
-        for i in range(s.lines):  # ensure cursor is at top margin
+        for _ in range(s.lines):
             s.reverse_index()
         # Test clipped scrolling during index
         put_image(s, cw, 2*ch, z=-1, no_id=True)  # 1x2 cell image
@@ -780,7 +780,7 @@ class TestGraphics(BaseTest):
         s.index()
         self.ae(s.grman.image_count, 2)
         # Test clipped scrolling during reverse_index
-        for i in range(s.lines):
+        for _ in range(s.lines):
             s.reverse_index()
         put_image(s, cw, 2*ch, z=-1, no_id=True)  # 1x2 cell image
         self.ae(s.grman.image_count, 3)
@@ -803,7 +803,7 @@ class TestGraphics(BaseTest):
         self.ae(s.grman.image_count, 0)
         put_image(s, cw, ch)  # a one cell image at (0, 0)
         self.ae(s.grman.image_count, 1)
-        for i in range(s.lines):
+        for _ in range(s.lines):
             s.index()
         s.reset()
         self.ae(s.grman.image_count, 1)

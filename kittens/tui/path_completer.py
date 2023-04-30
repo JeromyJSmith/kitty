@@ -36,7 +36,7 @@ def expand_path(path: str) -> str:
 def find_completions(path: str) -> Generator[str, None, None]:
     if path and path[0] == '~':
         if path == '~':
-            yield '~' + os.sep
+            yield f'~{os.sep}'
             return
         if os.sep not in path:
             qpath = os.path.expanduser(path)
@@ -130,9 +130,7 @@ class PathCompleter:
         options = self.cache.get(text)
         if options is None:
             options = self.cache[text] = tuple(find_completions(text))
-        if options and state < len(options):
-            return options[state]
-        return None
+        return options[state] if options and state < len(options) else None
 
     def __exit__(self, *a: Any) -> bool:
         import readline

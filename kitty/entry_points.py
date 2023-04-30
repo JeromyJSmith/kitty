@@ -64,10 +64,10 @@ def launch(args: List[str]) -> None:
         )
     if exe.startswith(':'):
         import shutil
-        q = shutil.which(exe[1:])
-        if not q:
+        if q := shutil.which(exe[1:]):
+            exe = q
+        else:
             raise SystemExit(f'{exe[1:]} not found in PATH')
-        exe = q
     if not os.path.exists(exe):
         raise SystemExit(f'{exe} does not exist')
     runpy.run_path(exe, run_name='__main__')
@@ -107,10 +107,7 @@ def shebang(args: List[str]) -> None:
             line = f.readline().strip()
             _plat = sys.platform.lower()
             is_macos: bool = 'darwin' in _plat
-            if is_macos:
-                cmd = line.split(' ')
-            else:
-                cmd = line.split(' ', maxsplit=1)
+            cmd = line.split(' ') if is_macos else line.split(' ', maxsplit=1)
     os.execvp(cmd[0], cmd + [script_path])
 
 
@@ -181,8 +178,7 @@ def setup_openssl_environment(ext_dir: str) -> None:
 
 def main() -> None:
     if getattr(sys, 'frozen', False):
-        ext_dir: str = getattr(sys, 'kitty_run_data').get('extensions_dir')
-        if ext_dir:
+        if ext_dir := getattr(sys, 'kitty_run_data').get('extensions_dir'):
             setup_openssl_environment(ext_dir)
     first_arg = '' if len(sys.argv) < 2 else sys.argv[1]
     func = entry_points.get(first_arg)

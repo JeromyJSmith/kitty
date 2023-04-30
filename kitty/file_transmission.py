@@ -40,7 +40,7 @@ def as_unicode(x: Union[str, bytes]) -> str:
 
 def encode_bypass(request_id: str, bypass: str) -> str:
     import hashlib
-    q = request_id + ';' + bypass
+    q = f'{request_id};{bypass}'
     return 'sha256:' + hashlib.sha256(q.encode('utf-8', 'replace')).hexdigest()
 
 
@@ -219,7 +219,7 @@ class TransmissionError(Exception):
     def as_ftc(self, request_id: str) -> 'FileTransmissionCommand':
         name = self.code if isinstance(self.code, str) else self.code.name
         if self.human_msg:
-            name += ':' + self.human_msg
+            name += f':{self.human_msg}'
         return FileTransmissionCommand(
             action=Action.status, id=request_id, file_id=self.file_id, status=name, name=self.name, size=self.size, ttype=self.ttype
         )
@@ -227,17 +227,19 @@ class TransmissionError(Exception):
 
 @run_once
 def name_to_serialized_map() -> Dict[str, str]:
-    ans: Dict[str, str] = {}
-    for k in fields(FileTransmissionCommand):
-        ans[k.name] = k.metadata.get('sname', k.name)
+    ans: Dict[str, str] = {
+        k.name: k.metadata.get('sname', k.name)
+        for k in fields(FileTransmissionCommand)
+    }
     return ans
 
 
 @run_once
 def serialized_to_field_map() -> Dict[bytes, 'Field[Any]']:
-    ans: Dict[bytes, 'Field[Any]'] = {}
-    for k in fields(FileTransmissionCommand):
-        ans[k.metadata.get('sname', k.name).encode('ascii')] = k
+    ans: Dict[bytes, 'Field[Any]'] = {
+        k.metadata.get('sname', k.name).encode('ascii'): k
+        for k in fields(FileTransmissionCommand)
+    }
     return ans
 
 
@@ -549,7 +551,7 @@ class SourceFile:
         self.file_id = ftc.file_id
         self.path = ftc.name
         self.ttype = ftc.ttype
-        self.waiting_for_signature = True if self.ttype is TransmissionType.rsync else False
+        self.waiting_for_signature = self.ttype is TransmissionType.rsync
         self.transmitted = False
         self.stat = os.stat(self.path, follow_symlinks=False)
         if stat.S_ISDIR(self.stat.st_mode):
@@ -581,21 +583,19 @@ class SourceFile:
         if self.target:
             self.transmitted = True
             data = self.target
+        elif self.open_file is None:
+            self.transmitted = True
+            data = b''
+        elif self.delta_loader is None:
+            data = self.open_file.read(sz)
+            if not data or self.open_file.tell() >= self.stat.st_size:
+                self.transmitted = True
         else:
-            if self.open_file is None:
+            try:
+                data = next(self.delta_loader)
+            except StopIteration:
                 self.transmitted = True
                 data = b''
-            else:
-                if self.delta_loader is None:
-                    data = self.open_file.read(sz)
-                    if not data or self.open_file.tell() >= self.stat.st_size:
-                        self.transmitted = True
-                else:
-                    try:
-                        data = next(self.delta_loader)
-                    except StopIteration:
-                        self.transmitted = True
-                        data = b''
         uncompressed_sz = len(data)
         cchunk = self.compressor.compress(data)
         if self.transmitted and not isinstance(self.compressor, IdentityCompressor):
@@ -793,9 +793,8 @@ class FileTransmission:
                     return
                 if asd.metadata_sent:
                     self.pump_send_chunks(asd)
-                else:
-                    if asd.spec_complete and asd.accepted:
-                        self.send_metadata_for_send_transfer(asd)
+                elif asd.spec_complete and asd.accepted:
+                    self.send_metadata_for_send_transfer(asd)
                 return
             if cmd.action in (Action.data, Action.end_data):
                 try:
@@ -833,13 +832,12 @@ class FileTransmission:
         sent = False
         for ftc in iter_file_metadata(asd.file_specs):
             if isinstance(ftc, TransmissionError):
-                sent = True
                 if asd.send_errors:
                     self.send_transmission_error(asd.id, ftc)
             else:
                 ftc.id = asd.id
                 self.write_ftc_to_child(ftc)
-                sent = True
+            sent = True
         if sent:
             self.send_status_response(code=ErrorCode.OK, request_id=asd.id, name=home_path())
             asd.metadata_sent = True
@@ -915,34 +913,32 @@ class FileTransmission:
                         self.send_fail_on_os_error(err, 'Failed to create directory', ar, df.file_id)
                     else:
                         self.send_status_response(ErrorCode.OK, ar.id, df.file_id, name=df.name)
-                else:
-                    if ar.send_acknowledgements:
-                        sz = df.existing_stat.st_size if df.existing_stat is not None else -1
-                        ttype = TransmissionType.rsync \
+                elif ar.send_acknowledgements:
+                    sz = df.existing_stat.st_size if df.existing_stat is not None else -1
+                    ttype = TransmissionType.rsync \
                             if sz > -1 and df.ttype is TransmissionType.rsync and df.ftype is FileType.regular else TransmissionType.simple
-                        self.send_status_response(code=ErrorCode.STARTED, request_id=ar.id, file_id=df.file_id, name=df.name, size=sz, ttype=ttype)
-                        df.ttype = ttype
-                        if ttype is TransmissionType.rsync:
-                            try:
-                                fs = signature_of_file(df.name)
-                            except OSError as err:
-                                self.send_fail_on_os_error(err, 'Failed to open file to read signature', ar, df.file_id)
-                            else:
-                                self.callback_after(partial(self.transmit_rsync_signature, fs, ar.id, df.file_id, deque()))
+                    self.send_status_response(code=ErrorCode.STARTED, request_id=ar.id, file_id=df.file_id, name=df.name, size=sz, ttype=ttype)
+                    df.ttype = ttype
+                    if ttype is TransmissionType.rsync:
+                        try:
+                            fs = signature_of_file(df.name)
+                        except OSError as err:
+                            self.send_fail_on_os_error(err, 'Failed to open file to read signature', ar, df.file_id)
+                        else:
+                            self.callback_after(partial(self.transmit_rsync_signature, fs, ar.id, df.file_id, deque()))
         elif cmd.action in (Action.data, Action.end_data):
             try:
-                before = 0
                 bf = ar.files.get(cmd.file_id)
-                if bf is not None:
-                    before = bf.bytes_written
+                before = bf.bytes_written if bf is not None else 0
                 df = ar.add_data(cmd)
                 if df.failed:
                     return
-                if ar.send_acknowledgements:
-                    if df.closed:
+                if df.closed:
+                    if ar.send_acknowledgements:
                         self.send_status_response(
                             code=ErrorCode.OK, request_id=ar.id, file_id=df.file_id, name=df.name, size=df.bytes_written)
-                    elif df.bytes_written > before:
+                elif df.bytes_written > before:
+                    if ar.send_acknowledgements:
                         self.send_status_response(
                             code=ErrorCode.PROGRESS, request_id=ar.id, file_id=df.file_id, size=df.bytes_written)
             except TransmissionError as err:
@@ -1027,13 +1023,12 @@ class FileTransmission:
         if window is not None:
             data = tuple(payload.get_serialized_fields(prefix_with_osc_code=True))
             queued = window.screen.send_escape_code_to_child(OSC, data)
-            if not queued:
-                if use_pending:
-                    if appendleft:
-                        self.pending_receive_responses.appendleft(payload)
-                    else:
-                        self.pending_receive_responses.append(payload)
-                    self.start_pending_timer()
+            if not queued and use_pending:
+                if appendleft:
+                    self.pending_receive_responses.appendleft(payload)
+                else:
+                    self.pending_receive_responses.append(payload)
+                self.start_pending_timer()
             return queued
         return False
 
@@ -1063,9 +1058,8 @@ class FileTransmission:
                 self.send_status_response(code=ErrorCode.OK, request_id=asd.id)
             if asd.spec_complete:
                 self.send_metadata_for_send_transfer(asd)
-        else:
-            if asd.send_errors:
-                self.send_status_response(code=ErrorCode.EPERM, request_id=asd.id, msg='User refused the transfer')
+        elif asd.send_errors:
+            self.send_status_response(code=ErrorCode.EPERM, request_id=asd.id, msg='User refused the transfer')
 
     def start_receive(self, ar_id: str) -> None:
         ar = self.active_receives[ar_id]
@@ -1091,9 +1085,8 @@ class FileTransmission:
         if ar.accepted:
             if ar.send_acknowledgements:
                 self.send_status_response(code=ErrorCode.OK, request_id=ar.id)
-        else:
-            if ar.send_errors:
-                self.send_status_response(code=ErrorCode.EPERM, request_id=ar.id, msg='User refused the transfer')
+        elif ar.send_errors:
+            self.send_status_response(code=ErrorCode.EPERM, request_id=ar.id, msg='User refused the transfer')
 
     def send_fail_on_os_error(self, err: OSError, msg: str, ar: Union[ActiveSend, ActiveReceive], file_id: str = '') -> None:
         if not ar.send_errors:

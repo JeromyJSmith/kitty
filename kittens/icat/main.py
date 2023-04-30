@@ -159,9 +159,7 @@ help_text = (
 usage = 'image-file-or-url-or-directory ...'
 
 
-if __name__ == '__main__':
-    raise SystemExit('This should be run as kitten icat')
-elif __name__ == '__doc__':
+if __name__ == '__doc__':
     import sys
 
     from kitty.cli import CompletionSpec
@@ -171,3 +169,5 @@ elif __name__ == '__doc__':
     cd['help_text'] = help_text
     cd['short_desc'] = 'Display images in the terminal'
     cd['args_completion'] = CompletionSpec.from_string('type:file mime:image/* group:Images')
+elif __name__ == '__main__':
+    raise SystemExit('This should be run as kitten icat')

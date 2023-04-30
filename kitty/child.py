@@ -147,9 +147,7 @@ def process_env() -> Dict[str, str]:
 
 def default_env() -> Dict[str, str]:
     ans: Optional[Dict[str, str]] = getattr(default_env, 'env', None)
-    if ans is None:
-        return process_env()
-    return ans
+    return process_env() if ans is None else ans
 
 
 def set_default_env(val: Optional[Dict[str, str]] = None) -> None:
@@ -236,8 +234,7 @@ class Child:
             # can use it to display the current directory name rather
             # than the resolved path
             env['PWD'] = self.cwd
-        tdir = checked_terminfo_dir()
-        if tdir:
+        if tdir := checked_terminfo_dir():
             env['TERMINFO'] = tdir
         env['KITTY_INSTALLATION_DIR'] = kitty_base_dir
         opts = fast_data_types.get_options()
@@ -408,8 +405,7 @@ class Child:
         with suppress(Exception):
             pid = self.get_pid_for_cwd(oldest)
             if pid is not None:
-                c = cmdline_of_pid(pid)
-                if c:
+                if c := cmdline_of_pid(pid):
                     return c[0]
         return None
 

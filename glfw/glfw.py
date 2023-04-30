@@ -94,14 +94,14 @@ def init_env(
     with open(os.path.join(base, 'source-info.json')) as f:
         sinfo = json.load(f)
     module_sources = list(sinfo[module]['sources'])
-    if module in ('x11', 'wayland'):
+    if module in {'x11', 'wayland'}:
         remove = 'null_joystick.c' if is_linux else 'linux_joystick.c'
         module_sources.remove(remove)
 
     ans.sources = sinfo['common']['sources'] + module_sources
     ans.all_headers = [x for x in os.listdir(base) if x.endswith('.h')]
 
-    if module in ('x11', 'wayland'):
+    if module in {'x11', 'wayland'}:
         ans.cflags.append('-pthread')
         ans.ldpaths.extend('-pthread -lm'.split())
         if not is_openbsd:
@@ -112,12 +112,7 @@ def init_env(
         if major < 1:
             ans.cflags.append('-DXKB_HAS_NO_UTF32')
 
-    if module == 'x11':
-        for dep in 'x11 xrandr xinerama xcursor xkbcommon xkbcommon-x11 x11-xcb dbus-1'.split():
-            ans.cflags.extend(pkg_config(dep, '--cflags-only-I'))
-            ans.ldpaths.extend(pkg_config(dep, '--libs'))
-
-    elif module == 'cocoa':
+    if module == 'cocoa':
         ans.cppflags.append('-DGL_SILENCE_DEPRECATION')
         for f_ in 'Cocoa IOKit CoreFoundation CoreVideo UniformTypeIdentifiers'.split():
             ans.ldpaths.extend(('-framework', f_))
@@ -135,14 +130,22 @@ def init_env(
         for dep in 'wayland-client wayland-cursor xkbcommon dbus-1'.split():
             ans.cflags.extend(pkg_config(dep, '--cflags-only-I'))
             ans.ldpaths.extend(pkg_config(dep, '--libs'))
-        has_memfd_create = test_compile(env.cc, '-Werror', src='''#define _GNU_SOURCE
+        if has_memfd_create := test_compile(
+            env.cc,
+            '-Werror',
+            src='''#define _GNU_SOURCE
     #include <unistd.h>
     #include <sys/syscall.h>
     int main(void) {
         return syscall(__NR_memfd_create, "test", 0);
-    }''')
-        if has_memfd_create:
+    }''',
+        ):
             ans.cppflags.append('-DHAS_MEMFD_CREATE')
+
+    elif module == 'x11':
+        for dep in 'x11 xrandr xinerama xcursor xkbcommon xkbcommon-x11 x11-xcb dbus-1'.split():
+            ans.cflags.extend(pkg_config(dep, '--cflags-only-I'))
+            ans.ldpaths.extend(pkg_config(dep, '--libs'))
 
     return ans
 
@@ -179,7 +182,7 @@ class Arg:
         self.name = self.name.strip()
         while self.name.startswith('*'):
             self.name = self.name[1:]
-            self.type = self.type + '*'
+            self.type = f'{self.type}*'
         if '[' in self.name:
             self.type += '[' + self.name.partition('[')[-1]
 
@@ -195,16 +198,13 @@ class Function:
             r'(.+?)\s+(glfw[A-Z][a-zA-Z0-9]+)[(](.+)[)]$', declaration
         )
         if m is None:
-            raise SystemExit('Failed to parse ' + repr(declaration))
-        self.restype = m.group(1).strip()
-        self.name = m.group(2)
-        args = m.group(3).strip().split(',')
+            raise SystemExit(f'Failed to parse {repr(declaration)}')
+        self.restype = m[1].strip()
+        self.name = m[2]
+        args = m[3].strip().split(',')
         args = [x.strip() for x in args]
         self.args = []
-        for a in args:
-            if a == 'void':
-                continue
-            self.args.append(Arg(a))
+        self.args.extend(Arg(a) for a in args if a != 'void')
         if not self.args:
             self.args = [Arg('void v')]
 
@@ -237,7 +237,9 @@ def generate_wrappers(glfw_header: str) -> None:
         if 'VkInstance' in decl:
             continue
         functions.append(Function(decl))
-    for line in '''\
+    functions.extend(
+        Function(line.strip(), check_fail=False)
+        for line in '''\
     void* glfwGetCocoaWindow(GLFWwindow* window)
     void glfwHideCocoaTitlebar(GLFWwindow* window, bool yes)
     void* glfwGetNSGLContext(GLFWwindow *window)
@@ -264,10 +266,9 @@ const char *action_text, int32_t timeout, GLFWDBusnotificationcreatedfun callbac
     int glfwSetX11LaunchCommand(GLFWwindow *handle, char **argv, int argc)
     void glfwSetX11WindowAsDock(int32_t x11_window_id)
     void glfwSetX11WindowStrut(int32_t x11_window_id, uint32_t dimensions[12])
-'''.splitlines():
-        if line:
-            functions.append(Function(line.strip(), check_fail=False))
-
+'''.splitlines()
+        if line
+    )
     declarations = [f.declaration() for f in functions]
     p = src.find(' * GLFW API tokens')
     p = src.find('*/', p)

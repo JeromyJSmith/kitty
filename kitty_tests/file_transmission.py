@@ -155,12 +155,12 @@ class TestFileTransmission(BaseTest):
             self.assertResponses(ft, status='OK')
             with open(os.path.join(home, 'a'), 'w') as f:
                 f.write('a')
-            os.mkdir(f.name + 'd')
-            with open(os.path.join(f.name + 'd', 'b'), 'w') as f2:
+            os.mkdir(f'{f.name}d')
+            with open(os.path.join(f'{f.name}d', 'b'), 'w') as f2:
                 f2.write('bbb')
-            os.symlink(f.name, f.name + 'd/s')
-            os.link(f.name, f.name + 'd/h')
-            os.symlink('XXX', f.name + 'd/q')
+            os.symlink(f.name, f'{f.name}d/s')
+            os.link(f.name, f'{f.name}d/h')
+            os.symlink('XXX', f'{f.name}d/q')
             ft.handle_serialized_command(serialized_cmd(action='file', file_id='a', name='a'))
             ft.handle_serialized_command(serialized_cmd(action='file', file_id='b', name='ad'))
             files = {r['name']: r for r in ft.test_responses if r['action'] == 'file'}
@@ -168,17 +168,17 @@ class TestFileTransmission(BaseTest):
             q = files[f.name]
             tgt = q['status'].encode('ascii')
             self.ae(q['size'], 1), self.assertNotIn('ftype', q)
-            q = files[f.name + 'd']
+            q = files[f'{f.name}d']
             self.ae(q['ftype'], 'directory')
-            q = files[f.name + 'd/b']
+            q = files[f'{f.name}d/b']
             self.ae(q['size'], 3)
-            q = files[f.name + 'd/s']
+            q = files[f'{f.name}d/s']
             self.ae(q['ftype'], 'symlink')
             self.ae(q['data'], tgt)
-            q = files[f.name + 'd/h']
+            q = files[f'{f.name}d/h']
             self.ae(q['ftype'], 'link')
             self.ae(q['data'], tgt)
-            q = files[f.name + 'd/q']
+            q = files[f'{f.name}d/q']
             self.ae(q['ftype'], 'symlink')
             self.assertNotIn('data', q)
         base = os.path.join(self.tdir, 'base')
@@ -314,7 +314,9 @@ class TestFileTransmission(BaseTest):
             kw['file_id'] = str(fid)
             kw['name'] = name
             ft.handle_serialized_command(serialized_cmd(**kw))
-            self.assertResponses(ft, status='OK' if not data else 'STARTED', name=name, file_id=str(fid))
+            self.assertResponses(
+                ft, status='STARTED' if data else 'OK', name=name, file_id=str(fid)
+            )
             if data:
                 ft.handle_serialized_command(serialized_cmd(action='end_data', file_id=str(fid), data=data))
                 self.assertResponses(ft, status='OK', name=name, file_id=str(fid))
@@ -324,30 +326,36 @@ class TestFileTransmission(BaseTest):
         self.ae(st.st_nlink, 1)
         self.ae(stat.S_IMODE(st.st_mode), 0o777)
         self.ae(st.st_mtime_ns, 13000)
-        send(dest + 's1', 'path:' + os.path.basename(dest), permissions=0o777, mtime=17000, ftype='symlink')
-        st = os.stat(dest + 's1', follow_symlinks=False)
+        send(
+            f'{dest}s1',
+            f'path:{os.path.basename(dest)}',
+            permissions=0o777,
+            mtime=17000,
+            ftype='symlink',
+        )
+        st = os.stat(f'{dest}s1', follow_symlinks=False)
         self.ae(stat.S_IMODE(st.st_mode), 0o777)
         self.ae(st.st_mtime_ns, 17000)
-        self.ae(os.readlink(dest + 's1'), os.path.basename(dest))
-        send(dest + 's2', 'fid:1', ftype='symlink')
-        self.ae(os.readlink(dest + 's2'), os.path.basename(dest))
-        send(dest + 's3', 'fid_abs:1', ftype='symlink')
-        self.assertPathEqual(os.readlink(dest + 's3'), dest)
-        send(dest + 'l1', 'path:' + os.path.basename(dest), ftype='link')
+        self.ae(os.readlink(f'{dest}s1'), os.path.basename(dest))
+        send(f'{dest}s2', 'fid:1', ftype='symlink')
+        self.ae(os.readlink(f'{dest}s2'), os.path.basename(dest))
+        send(f'{dest}s3', 'fid_abs:1', ftype='symlink')
+        self.assertPathEqual(os.readlink(f'{dest}s3'), dest)
+        send(f'{dest}l1', f'path:{os.path.basename(dest)}', ftype='link')
         self.ae(os.stat(dest).st_nlink, 2)
-        send(dest + 'l2', 'fid:1', ftype='link')
+        send(f'{dest}l2', 'fid:1', ftype='link')
         self.ae(os.stat(dest).st_nlink, 3)
-        send(dest + 'd1/1', 'in_dir')
-        send(dest + 'd1', '', ftype='directory', mtime=29000)
-        send(dest + 'd2', '', ftype='directory', mtime=29000)
-        with open(dest + 'd1/1') as f:
+        send(f'{dest}d1/1', 'in_dir')
+        send(f'{dest}d1', '', ftype='directory', mtime=29000)
+        send(f'{dest}d2', '', ftype='directory', mtime=29000)
+        with open(f'{dest}d1/1') as f:
             self.ae(f.read(), 'in_dir')
-        self.assertTrue(os.path.isdir(dest + 'd1'))
-        self.assertTrue(os.path.isdir(dest + 'd2'))
+        self.assertTrue(os.path.isdir(f'{dest}d1'))
+        self.assertTrue(os.path.isdir(f'{dest}d2'))
 
         ft.handle_serialized_command(serialized_cmd(action='finish'))
-        self.ae(os.stat(dest + 'd1').st_mtime_ns, 29000)
-        self.ae(os.stat(dest + 'd2').st_mtime_ns, 29000)
+        self.ae(os.stat(f'{dest}d1').st_mtime_ns, 29000)
+        self.ae(os.stat(f'{dest}d2').st_mtime_ns, 29000)
         self.assertFalse(ft.active_receives)
 
     def test_parse_ftc(self):
@@ -383,7 +391,7 @@ class TestFileTransmission(BaseTest):
             self.ae(kw, m)
 
         def gm(all_specs):
-            specs = list((str(i), str(s)) for i, s in enumerate(all_specs))
+            specs = [(str(i), str(s)) for i, s in enumerate(all_specs)]
             files = []
             for x in iter_file_metadata(specs):
                 if isinstance(x, Exception):

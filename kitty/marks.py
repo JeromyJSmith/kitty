@@ -78,14 +78,16 @@ def marker_from_function(func: Callable[[str], Iterable[Tuple[int, int, int]]]) 
 
 
 def marker_from_spec(ftype: str, spec: Union[str, Sequence[Tuple[int, str]]], flags: int) -> MarkerFunc:
-    if ftype == 'regex':
-        assert not isinstance(spec, str)
-        if len(spec) == 1:
-            return marker_from_regex(spec[0][1], spec[0][0], flags=flags)
-        return marker_from_multiple_regex(spec, flags=flags)
     if ftype == 'function':
         import runpy
         assert isinstance(spec, str)
         path = resolve_custom_file(spec)
         return marker_from_function(runpy.run_path(path, run_name='__marker__')["marker"])
+    elif ftype == 'regex':
+        assert not isinstance(spec, str)
+        return (
+            marker_from_regex(spec[0][1], spec[0][0], flags=flags)
+            if len(spec) == 1
+            else marker_from_multiple_regex(spec, flags=flags)
+        )
     raise ValueError(f'Unknown marker type: {ftype}')

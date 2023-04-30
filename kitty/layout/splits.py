@@ -70,17 +70,20 @@ class Pair:
                 pa.one, pb.one = pb.one, pa.one
             else:
                 pa.one, pb.two = pb.two, pa.one
+        elif pb.one == b:
+            pa.two, pb.one = pb.one, pa.two
         else:
-            if pb.one == b:
-                pa.two, pb.one = pb.one, pa.two
-            else:
-                pa.two, pb.two = pb.two, pa.two
+            pa.two, pb.two = pb.two, pa.two
 
     def parent(self, root: 'Pair') -> Optional['Pair']:
-        for q in root.self_and_descendants():
-            if q.one is self or q.two is self:
-                return q
-        return None
+        return next(
+            (
+                q
+                for q in root.self_and_descendants()
+                if q.one is self or q.two is self
+            ),
+            None,
+        )
 
     def remove_windows(self, window_ids: Collection[int]) -> None:
         if isinstance(self.one, int) and self.one in window_ids:
@@ -264,7 +267,11 @@ class Pair:
             yield self.between_borders[0 if is_first else 1]
         q = self
         found_same_direction = found_transverse1 = found_transverse2 = False
-        while not (found_same_direction and found_transverse1 and found_transverse2):
+        while (
+            not found_same_direction
+            or not found_transverse1
+            or not found_transverse2
+        ):
             parent = q.parent(layout_object.pairs_root)
             if parent is None:
                 break
@@ -298,25 +305,20 @@ class Pair:
                             yield edges._replace(left=extent.start, right=extent.end)
                         else:
                             yield edges._replace(top=extent.start, bottom=extent.end)
-                else:
-                    if not found_transverse2:
-                        found_transverse2 = True
-                        edges = q.between_borders[0]
-                        if self.horizontal:
-                            yield edges._replace(left=extent.start, right=extent.end)
-                        else:
-                            yield edges._replace(top=extent.start, bottom=extent.end)
+                elif not found_transverse2:
+                    found_transverse2 = True
+                    edges = q.between_borders[0]
+                    if self.horizontal:
+                        yield edges._replace(left=extent.start, right=extent.end)
+                    else:
+                        yield edges._replace(top=extent.start, bottom=extent.end)
 
     def neighbors_for_window(self, window_id: int, ans: NeighborsMap, layout_object: 'Splits', all_windows: WindowList) -> None:
 
         def quadrant(is_horizontal: bool, is_first: bool) -> Tuple[EdgeLiteral, EdgeLiteral]:
             if is_horizontal:
-                if is_first:
-                    return 'left', 'right'
-                return 'right', 'left'
-            if is_first:
-                return 'top', 'bottom'
-            return 'bottom', 'top'
+                return ('left', 'right') if is_first else ('right', 'left')
+            return ('top', 'bottom') if is_first else ('bottom', 'top')
 
         geometries = {group.id: group.geometry for group in all_windows.groups if group.geometry}
 
@@ -332,7 +334,11 @@ class Pair:
 
         def is_neighbouring_geometry(a: WindowGeometry, b: WindowGeometry, direction: str) -> bool:
             def edges(g: WindowGeometry) -> Tuple[int, int]:
-                return (g.top, g.bottom) if direction in ['left', 'right'] else (g.left, g.right)
+                return (
+                    (g.top, g.bottom)
+                    if direction in {'left', 'right'}
+                    else (g.left, g.right)
+                )
 
             a1, a2 = edges(a)
             b1, b2 = edges(b)
@@ -353,15 +359,14 @@ class Pair:
 
     def edge_windows(self, edge: str) -> Generator[int, None, None]:
         if self.is_redundant:
-            q = self.one or self.two
-            if q:
+            if q := self.one or self.two:
                 if isinstance(q, Pair):
                     yield from q.edge_windows(edge)
                 else:
                     yield q
         edges = ('left', 'right') if self.horizontal else ('top', 'bottom')
         if edge in edges:
-            q = self.one if edge in ('left', 'top') else self.two
+            q = self.one if edge in {'left', 'top'} else self.two
             if q:
                 if isinstance(q, Pair):
                     yield from q.edge_windows(edge)
@@ -424,13 +429,11 @@ class Splits(Layout):
         root = self.pairs_root
         all_present_window_ids = frozenset(w.id for w in groups)
         already_placed_window_ids = frozenset(root.all_window_ids())
-        windows_to_remove = already_placed_window_ids - all_present_window_ids
-        if windows_to_remove:
+        if windows_to_remove := already_placed_window_ids - all_present_window_ids:
             self.remove_windows(*windows_to_remove)
         id_window_map = {w.id: w for w in groups}
         id_idx_map = {w.id: i for i, w in enumerate(groups)}
-        windows_to_add = all_present_window_ids - already_placed_window_ids
-        if windows_to_add:
+        if windows_to_add := all_present_window_ids - already_placed_window_ids:
             for wid in sorted(windows_to_add, key=id_idx_map.__getitem__):
                 root.balanced_add(wid)
 
@@ -530,32 +533,13 @@ class Splits(Layout):
         return moved
 
     def layout_action(self, action_name: str, args: Sequence[str], all_windows: WindowList) -> Optional[bool]:
-        if action_name == 'rotate':
-            args = args or ('90',)
-            try:
-                amt = int(args[0])
-            except Exception:
-                amt = 90
-            if amt not in (90, 180, 270):
-                amt = 90
-            rotate = amt in (90, 270)
-            swap = amt in (180, 270)
-            wg = all_windows.active_group
-            if wg is not None:
-                pair = self.pairs_root.pair_for_window(wg.id)
-                if pair is not None and not pair.is_redundant:
-                    if rotate:
-                        pair.horizontal = not pair.horizontal
-                    if swap:
-                        pair.one, pair.two = pair.two, pair.one
-                    return True
-        elif action_name == 'move_to_screen_edge':
+        if action_name == 'move_to_screen_edge':
             args = args or ('left',)
-            which = args[0]
-            horizontal = which in ('left', 'right')
             wg = all_windows.active_group
             if wg is not None:
                 self.remove_windows(wg.id)
+                which = args[0]
+                horizontal = which in ('left', 'right')
                 new_root = Pair(horizontal)
                 if which in ('left', 'top'):
                     new_root.balanced_add(wg.id)
@@ -566,6 +550,25 @@ class Splits(Layout):
                 self.pairs_root = new_root
                 return True
 
+        elif action_name == 'rotate':
+            args = args or ('90',)
+            try:
+                amt = int(args[0])
+            except Exception:
+                amt = 90
+            if amt not in (90, 180, 270):
+                amt = 90
+            wg = all_windows.active_group
+            if wg is not None:
+                pair = self.pairs_root.pair_for_window(wg.id)
+                if pair is not None and not pair.is_redundant:
+                    rotate = amt in {90, 270}
+                    if rotate:
+                        pair.horizontal = not pair.horizontal
+                    swap = amt in {180, 270}
+                    if swap:
+                        pair.one, pair.two = pair.two, pair.one
+                    return True
         return None
 
     def layout_state(self) -> Dict[str, Any]:

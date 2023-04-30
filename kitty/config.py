@@ -56,7 +56,7 @@ def cached_values_for(name: str) -> Generator[Dict[str, Any], None, None]:
     cached_values: Dict[str, Any] = {}
     try:
         with open(cached_path, 'rb') as f:
-            cached_values.update(json.loads(f.read().decode('utf-8')))
+            cached_values |= json.loads(f.read().decode('utf-8'))
     except FileNotFoundError:
         pass
     except Exception as err:

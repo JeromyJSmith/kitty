@@ -99,12 +99,11 @@ def compare_opts(opts: KittyOpts, print: Print) -> None:
         else:
             val = getattr(opts, f)
             if isinstance(val, Color):
-                colors.append(fmt.format(f) + ' ' + color_as_sharp(val) + ' ' + styled('  ', bg=val))
+                colors.append(f'{fmt.format(f)} {color_as_sharp(val)} ' + styled('  ', bg=val))
+            elif f == 'kitty_mod':
+                print(fmt.format(f), '+'.join(mod_to_names(getattr(opts, f))))
             else:
-                if f == 'kitty_mod':
-                    print(fmt.format(f), '+'.join(mod_to_names(getattr(opts, f))))
-                else:
-                    print(fmt.format(f), str(getattr(opts, f)))
+                print(fmt.format(f), getattr(opts, f))
 
     compare_maps(opts.mousemap, opts.kitty_mod, default_opts.mousemap, default_opts.kitty_mod, print)
     final_, initial_ = opts.keymap, default_opts.keymap
@@ -146,7 +145,7 @@ class IssueData:
         except RuntimeError:
             self.num_users = -1
         self.u = str(self.num_users)
-        self.U = self.u + ' user' + ('' if self.num_users == 1 else 's')
+        self.U = f'{self.u} user' + ('' if self.num_users == 1 else 's')
 
     def translate_issue_char(self, char: str) -> str:
         try:

@@ -60,12 +60,13 @@ def ignore_in_lib(base, items, ignored_dirs=None):
     for name in items:
         path = j(base, name)
         if os.path.isdir(path):
-            if name in ignored_dirs or not os.path.exists(j(path, '__init__.py')):
-                if name != 'plugins':
-                    ans.append(name)
-        else:
-            if name.rpartition('.')[-1] not in ('so', 'py'):
+            if (
+                name in ignored_dirs
+                or not os.path.exists(j(path, '__init__.py'))
+            ) and name != 'plugins':
                 ans.append(name)
+        elif name.rpartition('.')[-1] not in ('so', 'py'):
+            ans.append(name)
     return ans
 
 
@@ -218,7 +219,7 @@ def create_tarfile(env, compression_level='9'):
     start_time = time.time()
     subprocess.check_call(['xz', '--verbose', '--threads=0', '-f', f'-{compression_level}', dist])
     secs = time.time() - start_time
-    print('Compressed in {} minutes {} seconds'.format(secs // 60, secs % 60))
+    print(f'Compressed in {secs // 60} minutes {secs % 60} seconds')
     os.rename(f'{dist}.xz', ans)
     print('Archive {} created: {:.2f} MB'.format(
         os.path.basename(ans), os.stat(ans).st_size / (1024.**2)))

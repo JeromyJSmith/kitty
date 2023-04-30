@@ -10,7 +10,7 @@ if not files:
     raise SystemExit(subprocess.Popen(['mypy'] + sys.argv[1:]).wait())
 
 output = subprocess.run('dmypy run -- --follow-imports=error --show-column-numbers --no-color-output'.split(), stdout=subprocess.PIPE).stdout
-q = files[0] + ':'
+q = f'{files[0]}:'
 rc = 0
 for line in output.decode('utf-8').splitlines():
     if line.startswith(q):

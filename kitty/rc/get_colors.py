@@ -51,7 +51,7 @@ configured colors.
                 tab = windows[0].tabref()
                 tm = None if tab is None else tab.tab_manager_ref()
                 if tm is not None:
-                    ans.update(tm.tab_bar.current_colors)
+                    ans |= tm.tab_bar.current_colors
         all_keys = natsort_ints(ans)
         maxlen = max(map(len, all_keys))
         return '\n'.join(('{:%ds} {}' % maxlen).format(key, color_as_sharp(ans[key])) for key in all_keys)
